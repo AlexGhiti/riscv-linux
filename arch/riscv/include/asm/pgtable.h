@@ -121,6 +121,11 @@ static inline void pmd_clear(pmd_t *pmdp)
 	set_pmd(pmdp, __pmd(0));
 }
 
+static inline int pmd_huge(pmd_t pmd)
+{
+	return pmd_present(pmd)
+		&& (pmd_val(pmd) & (_PAGE_READ | _PAGE_WRITE | _PAGE_EXEC));
+}
 
 static inline pgd_t pfn_pgd(unsigned long pfn, pgprot_t prot)
 {
@@ -256,6 +261,16 @@ static inline pte_t pte_mkold(pte_t pte)
 static inline pte_t pte_mkspecial(pte_t pte)
 {
 	return __pte(pte_val(pte) | _PAGE_SPECIAL);
+}
+
+/* Give READ access so that the entry will be considered as a leaf pte,
+ * not a 'link' toward the next page table level.
+ */
+//That may not even be needed at all, since huge page allocation will set
+//the correct right to the pte.
+static inline pte_t pte_mkhuge(pte_t pte)
+{
+	return __pte(pte_val(pte));
 }
 
 /* Modify page protection bits */
@@ -416,7 +431,7 @@ static inline void pgtable_cache_init(void)
 #define VMALLOC_START    (PAGE_OFFSET - VMALLOC_SIZE)
 
 /*
- * Task size is 0x40000000000 for RV64 or 0xb800000 for RV32.
+ * Task size is 0x4000000000 for RV64 or 0xb800000 for RV32.
  * Note that PGDIR_SIZE must evenly divide TASK_SIZE.
  */
 #ifdef CONFIG_64BIT
