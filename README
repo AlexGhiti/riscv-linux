@@ -1,3 +1,27 @@
+prepare_hugepage_range:     arm, arm64,              mips, parisc, powerpc, sh, s390, sparc, tile, x86
+hugetlb_free_pgd_range:     arm, arm64,       metag, mips, parisc,          sh, s390,        tile, x86
+set_huge_pte_at:            arm,        ia64, metag, mips,         powerpc, sh, 		   x86
+huge_ptep_get_and_clear:    arm,        ia64, metag,                        sh,              tile, x86
+huge_ptep_clear_flush:      arm, 						s390,        tile, x86 (weird, lots of people don't do nothing here, TODO)
+huge_pte_none:		    arm, arm64, ia64, metag,       parisc, powerpc, sh, s390, sparc, tile, x86
+huge_pte_wrprotect:	    arm, arm64, ia64, metag, mips, parisc, powerpc, sh, s390, sparc, tile, x86
+huge_ptep_set_wrprotect:    arm,        ia64, metag, mips,         powerpc, sh,              tile, x86
+							           book3s/32
+							           nohash/32	
+huge_ptep_set_access_flags: arm,        ia64, metag,                        sh,              tile, x86
+huge_ptep_get:  			ia64, metag, mips, parisc, powerpc, sh,       sparc, tile, x86
+gigantic_page_supported   :      arm64, 			   powerpc,     s390,              x86
+						
+
+s390: Reimplements all the functions and does not use asm-genirc/hugetlb.h, so I don't touch.
+prepare_hugepage_range:	
+  -> mips  does tests that might be useful for others or superfluous ?!
+  -> parisc, s390, sh do not use file
+							
+inline functions already defined in asm-generic/hugetlb.h are NOT used
+int arch hugetlb.h => putting the include at the end of the file will not
+give rise to any missing function declarations
+
 Linux kernel
 ============
 
