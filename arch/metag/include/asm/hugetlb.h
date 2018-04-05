@@ -3,8 +3,6 @@
 #define _ASM_METAG_HUGETLB_H
 
 #include <asm/page.h>
-#include <asm-generic/hugetlb.h>
-
 
 static inline int is_hugepage_only_range(struct mm_struct *mm,
 					 unsigned long addr,
@@ -14,14 +12,6 @@ static inline int is_hugepage_only_range(struct mm_struct *mm,
 
 int prepare_hugepage_range(struct file *file, unsigned long addr,
 						unsigned long len);
-
-static inline void hugetlb_free_pgd_range(struct mmu_gather *tlb,
-					  unsigned long addr, unsigned long end,
-					  unsigned long floor,
-					  unsigned long ceiling)
-{
-	free_pgd_range(tlb, addr, end, floor, ceiling);
-}
 
 static inline void set_huge_pte_at(struct mm_struct *mm, unsigned long addr,
 				   pte_t *ptep, pte_t pte)
@@ -71,5 +61,7 @@ static inline pte_t huge_ptep_get(pte_t *ptep)
 static inline void arch_clear_hugepage_flags(struct page *page)
 {
 }
+
+#include <asm-generic/hugetlb.h>
 
 #endif /* _ASM_METAG_HUGETLB_H */

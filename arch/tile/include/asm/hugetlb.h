@@ -16,8 +16,6 @@
 #define _ASM_TILE_HUGETLB_H
 
 #include <asm/page.h>
-#include <asm-generic/hugetlb.h>
-
 
 static inline int is_hugepage_only_range(struct mm_struct *mm,
 					 unsigned long addr,
@@ -38,14 +36,6 @@ static inline int prepare_hugepage_range(struct file *file,
 	if (addr & ~huge_page_mask(h))
 		return -EINVAL;
 	return 0;
-}
-
-static inline void hugetlb_free_pgd_range(struct mmu_gather *tlb,
-					  unsigned long addr, unsigned long end,
-					  unsigned long floor,
-					  unsigned long ceiling)
-{
-	free_pgd_range(tlb, addr, end, floor, ceiling);
 }
 
 static inline void set_huge_pte_at(struct mm_struct *mm, unsigned long addr,
@@ -118,5 +108,7 @@ enum {
 };
 extern int huge_shift[HUGE_SHIFT_ENTRIES];
 #endif
+
+#include <asm-generic/hugetlb.h>
 
 #endif /* _ASM_TILE_HUGETLB_H */
