@@ -41,6 +41,9 @@ config RISCV
 config MMU
 	def_bool y
 
+config ARCH_WANT_GENERAL_HUGETLB
+	def_bool y
+
 # even on 32-bit, physical (and DMA) addresses are > 32-bits
 config ARCH_PHYS_ADDR_T_64BIT
 	def_bool y
@@ -57,6 +60,9 @@ config PAGE_OFFSET
 	default 0xC0000000 if 32BIT && MAXPHYSMEM_2GB
 	default 0xffffffff80000000 if 64BIT && MAXPHYSMEM_2GB
 	default 0xffffffe000000000 if 64BIT && MAXPHYSMEM_128GB
+
+config SYS_SUPPORTS_HUGETLBFS
+	def_bool y
 
 config STACKTRACE_SUPPORT
 	def_bool y
