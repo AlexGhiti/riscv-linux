@@ -66,6 +66,9 @@ config ARCH_WANT_GENERAL_HUGETLB
 config SYS_SUPPORTS_HUGETLBFS
 	def_bool y
 
+config HAVE_ARCH_TRANSPARENT_HUGEPAGE
+	def_bool y
+
 config STACKTRACE_SUPPORT
 	def_bool y
 

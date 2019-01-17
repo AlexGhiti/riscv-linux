@@ -380,6 +380,35 @@ static inline int ptep_clear_flush_young(struct vm_area_struct *vma,
 }
 
 /*
+ * THP definitions
+ */
+#ifdef CONFIG_TRANSPARENT_HUGEPAGE
+static inline pte_t pmd_pte(pmd_t pmd)
+{
+		return __pte(pmd_val(pmd));
+}
+
+static inline pmd_t pte_pmd(pte_t pte)
+{
+		return __pmd(pte_val(pte));
+}
+
+#define pmd_wrprotect(pmd)      pte_pmd(pte_wrprotect(pmd_pte(pmd)))
+#define pmd_mkwrite(pmd)        pte_pmd(pte_mkwrite(pmd_pte(pmd)))
+#define pmd_mkdirty(pmd)        pte_pmd(pte_mkdirty(pmd_pte(pmd)))
+#define pmd_mkold(pmd)          pte_pmd(pte_mkold(pmd_pte(pmd)))
+#define pmd_mkyoung(pmd)        pte_pmd(pte_mkyoung(pmd_pte(pmd)))
+#define pmd_mkhuge(pmd)         pte_pmd(pte_mkhuge(pmd_pte(pmd)))
+#define pmd_mknotpresent(pmd)   pte_pmd(pte_mknotpresent(pmd_pte(pmd)))
+#define pmd_mkclean(pmd)        pte_pmd(pte_mkclean(pmd_pte(pmd)))
+
+#define pmd_write(pmd)          pte_write(pmd_pte(pmd))
+#define pmd_young(pmd)          pte_young(pmd_pte(pmd))
+#define pmd_pfn(pmd)            pte_pfn(pmd_pte(pmd))
+#define pmd_dirty(pmd)          pte_dirty(pmd_pte(pmd))
+#endif /* CONFIG_TRANSPARENT_HUGEPAGE */
+
+/*
  * Encode and decode a swap entry
  *
  * Format of swap PTE:
