@@ -393,6 +393,12 @@ static inline pmd_t pte_pmd(pte_t pte)
 		return __pmd(pte_val(pte));
 }
 
+static inline void set_pmd_at(struct mm_struct *mm, unsigned long addr,
+			      pmd_t *pmdp, pmd_t pmd)
+{
+	*pmdp = pmd;
+}
+
 #define pmd_wrprotect(pmd)      pte_pmd(pte_wrprotect(pmd_pte(pmd)))
 #define pmd_mkwrite(pmd)        pte_pmd(pte_mkwrite(pmd_pte(pmd)))
 #define pmd_mkdirty(pmd)        pte_pmd(pte_mkdirty(pmd_pte(pmd)))
@@ -406,6 +412,7 @@ static inline pmd_t pte_pmd(pte_t pte)
 #define pmd_young(pmd)          pte_young(pmd_pte(pmd))
 #define pmd_pfn(pmd)            pte_pfn(pmd_pte(pmd))
 #define pmd_dirty(pmd)          pte_dirty(pmd_pte(pmd))
+
 #endif /* CONFIG_TRANSPARENT_HUGEPAGE */
 
 /*
