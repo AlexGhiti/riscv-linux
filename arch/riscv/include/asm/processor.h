@@ -23,6 +23,7 @@
  * space during mmap's.
  */
 #define TASK_UNMAPPED_BASE	PAGE_ALIGN(TASK_SIZE / 3)
+#define ARCH_WANT_MMAP_DEFAULT_LAYOUT_TOPDOWN
 
 #define STACK_TOP		TASK_SIZE
 #define STACK_TOP_MAX		STACK_TOP

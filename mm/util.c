@@ -279,7 +279,59 @@ int vma_is_stack_for_current(struct vm_area_struct *vma)
 	return (vma->vm_start <= KSTK_ESP(t) && vma->vm_end >= KSTK_ESP(t));
 }
 
-#if defined(CONFIG_MMU) && !defined(HAVE_ARCH_PICK_MMAP_LAYOUT)
+#if defined(CONFIG_MMU)
+#if defined(ARCH_WANT_MMAP_DEFAULT_LAYOUT_TOPDOWN)
+static int mmap_is_legacy(struct rlimit *rlim_stack)
+{
+       if (current->personality & ADDR_COMPAT_LAYOUT)
+               return 1;
+
+       if (rlim_stack->rlim_cur == RLIM_INFINITY)
+               return 1;
+
+       return sysctl_legacy_va_layout;
+}
+
+/* Gap between stack and mmap in case of top-down layout */
+#define MIN_GAP (SZ_128M)
+#define MAX_GAP (STACK_TOP / 6 * 5)
+static unsigned long mmap_base(unsigned long rnd, struct rlimit *rlim_stack)
+{
+        unsigned long gap = rlim_stack->rlim_cur;
+        unsigned long pad = (STACK_RND_MASK << PAGE_SHIFT) + stack_guard_gap;
+
+        /* Values close to RLIM_INFINITY can overflow. */
+        if (gap + pad > gap)
+                gap += pad;
+
+        if (gap < MIN_GAP)
+                gap = MIN_GAP;
+        else if (gap > MAX_GAP)
+                gap = MAX_GAP;
+
+        return PAGE_ALIGN(STACK_TOP - gap - rnd);
+}
+
+void arch_pick_mmap_layout(struct mm_struct *mm, struct rlimit *rlim_stack)
+{
+       unsigned long random_factor = 0UL;
+
+       if (current->flags & PF_RANDOMIZE)
+               random_factor = arch_mmap_rnd();
+
+       /*
+        * Fall back to the standard layout if the personality bit is set, or
+        * if the expected stack growth is unlimited:
+        */
+       if (mmap_is_legacy(rlim_stack)) {
+               mm->mmap_base = TASK_UNMAPPED_BASE + random_factor;
+               mm->get_unmapped_area = arch_get_unmapped_area;
+       } else {
+               mm->mmap_base = mmap_base(random_factor, rlim_stack);
+               mm->get_unmapped_area = arch_get_unmapped_area_topdown;
+       }
+}
+#elif !defined(HAVE_ARCH_PICK_MMAP_LAYOUT)
 void arch_pick_mmap_layout(struct mm_struct *mm, struct rlimit *rlim_stack)
 {
 	mm->mmap_base = TASK_UNMAPPED_BASE;
