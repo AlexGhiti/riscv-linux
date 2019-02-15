@@ -38,6 +38,11 @@ static int mmap_is_legacy(struct rlimit *rlim_stack)
 static unsigned long mmap_base(unsigned long rnd, struct rlimit *rlim_stack)
 {
 	unsigned long gap = rlim_stack->rlim_cur;
+	unsigned long pad = (STACK_RND_MASK << PAGE_SHIFT) + stack_guard_gap;
+
+	/* Values close to RLIM_INFINITY can overflow. */
+        if (gap + pad > gap)
+                gap += pad;
 
 	if (gap < MIN_GAP)
 		gap = MIN_GAP;
