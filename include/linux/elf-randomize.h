@@ -2,6 +2,8 @@
 #ifndef _ELF_RANDOMIZE_H
 #define _ELF_RANDOMIZE_H
 
+#include <asm/elf.h>
+
 struct mm_struct;
 
 #ifndef CONFIG_ARCH_HAS_ELF_RANDOMIZE
@@ -18,6 +20,10 @@ extern unsigned long arch_randomize_brk(struct mm_struct *mm);
 # ifdef CONFIG_COMPAT_BRK
 #  define compat_brk_randomized
 # endif
+#endif
+
+#ifndef STACK_RND_MASK
+#define STACK_RND_MASK (0x7ff >> (PAGE_SHIFT - 12))    /* 8MB of VA */
 #endif
 
 #endif
