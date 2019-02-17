@@ -8024,7 +8024,7 @@ unmovable:
 	return true;
 }
 
-#if (defined(CONFIG_MEMORY_ISOLATION) && defined(CONFIG_COMPACTION)) || defined(CONFIG_CMA)
+#ifdef CONFIG_CONTIG_ALLOC
 
 static unsigned long pfn_max_align_down(unsigned long pfn)
 {
@@ -8248,7 +8248,7 @@ void free_contig_range(unsigned long pfn, unsigned nr_pages)
 	}
 	WARN(count != 0, "%d pages are still in use!\n", count);
 }
-#endif
+#endif /* CONFIG_CONTIG_ALLOC */
 
 #ifdef CONFIG_MEMORY_HOTPLUG
 /*
