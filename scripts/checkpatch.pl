@@ -2081,10 +2081,15 @@ sub fix_inserted_deleted_lines {
 		}
 
 		while (defined($inserted) && ${$inserted}{'LINENR'} == $old_linenr) {
+			my $len = 1;
 			push(@lines, ${$inserted}{'LINE'});
+			# Do not increment the length when inserting a deletion line.
+			if (${$inserted}{'LINE'} =~ /^\-/) {
+				$len = 0;
+			}
 			$inserted = @{$insertedRef}[$next_insert++];
 			$new_linenr++;
-			fixup_current_range(\$lines[$range_last_linenr], $delta_offset++, 1);
+			fixup_current_range(\$lines[$range_last_linenr], $delta_offset++, $len);
 		}
 
 		if ($save_line) {
@@ -3298,12 +3303,18 @@ sub process {
 
 # check for multiple consecutive blank lines
 		if ($prevline =~ /^[\+ ]\s*$/ &&
-		    $line =~ /^\+\s*$/ &&
+		    $line =~ /^[\+ ]\s*$/ &&
 		    $last_blank_line != ($linenr - 1)) {
 			if (CHK("LINE_SPACING",
 				"Please don't use multiple blank lines\n" . $hereprev) &&
 			    $fix) {
 				fix_delete_line($fixlinenr, $rawline);
+				if ($line =~ /^ \s*$/) {
+					# If the line is not an inserted blank line, the multiple
+					# consecutive blank lines are caused by deletion: fix this
+					# by replacing the blank line with a deletion line.
+					fix_insert_line($fixlinenr, "\-");
+				}
 			}
 
 			$last_blank_line = $linenr;
