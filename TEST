@@ -1,0 +1,37 @@
+- x86:
+	compile:
+		- HUGETLBFS && !CONTIG_ALLOC: OK
+		- HUGETLBFS && CONTIG_ALLOC : OK
+	runtime:
+
+- RISCV:
+	compile:
+		- HUGETLBFS && !CONTIG_ALLOC: OK
+		- HUGETLBFS && CONTIG_ALLOC : OK
+	
+		- HUGETLBFS && !CONTIG_ALLOC: OK
+		- HUGETLBFS && CONTIG_ALLOC : OK
+	
+	runtime:
+		- HUGETLBFS && !CONTIG_ALLOC:
+			no hugepagesz:   OK (does not show 1GB page)
+			with hugepagesz: OK
+		- HUGETLBFS && CONTIG_ALLOC : OK
+			no hugepagesz:   OK
+			with hugepagesz: OK
+
+- sparc64:
+	compile: 
+		- HUGETLBFS = y && CONTIG_ALLOC:  OK
+		- HUGETLBFS = y && !CONTIG_ALLOC: OK 
+
+- sh:
+	compile: sdk7786_defconfig
+		- HUGETLBFS = y && CONTIG_ALLOC:  OK
+		- HUGETLBFS = y && !CONTIG_ALLOC: OK 
+		 
+- aarch64:
+	compile:
+		- HUGETLBFS = y && CONTIG_ALLOC:  OK 
+		- HUGETLBFS = y && !CONTIG_ALLOC: OK 
+
