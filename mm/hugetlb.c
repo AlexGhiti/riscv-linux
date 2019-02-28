@@ -69,6 +69,20 @@ static int num_fault_mutexes;
 struct mutex *hugetlb_fault_mutex_table ____cacheline_aligned_in_smp;
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 /* Forward declaration */
 static int hugetlb_acct_memory(struct hstate *h, long delta);
 
