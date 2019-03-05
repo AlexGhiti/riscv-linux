@@ -2296,6 +2296,10 @@ static unsigned long set_max_huge_pages(struct hstate *h, unsigned long count,
 {
 	unsigned long min_count, ret;
 
+
+	/* coucou
+	 * this is not a good comment.
+	 */
 	if (hstate_is_gigantic(h) && !gigantic_page_supported())
 		return h->max_huge_pages;
 
