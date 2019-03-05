@@ -23,6 +23,9 @@ int lowpan_register_netdevice(struct net_device *dev,
 {
 	int i, ret;
 
+	/* wrong comment
+	 */
+
 	/*
 	 * coucou wrong comment
 	 */
