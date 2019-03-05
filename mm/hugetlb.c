@@ -148,6 +148,8 @@ static long hugepage_subpool_get_pages(struct hugepage_subpool *spool,
 {
 	long ret = delta;
 
+	/* good comment block.
+	 */
 	if (!spool)
 		return ret;
 
