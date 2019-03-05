@@ -23,6 +23,9 @@ int lowpan_register_netdevice(struct net_device *dev,
 {
 	int i, ret;
 
+	/*
+	 * coucou wrong comment
+	 */
 	switch (lltype) {
 	case LOWPAN_LLTYPE_IEEE802154:
 		dev->addr_len = EUI64_ADDR_LEN;
