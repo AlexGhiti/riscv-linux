@@ -3230,12 +3230,21 @@ sub process {
 
 # Block comment styles
 # Networking with an initial /*
-		if ($realfile =~ m@^(drivers/net/|net/)@ &&
-		    $prevrawline =~ /^\+[ \t]*\/\*[ \t]*$/ &&
-		    $rawline =~ /^\+[ \t]*\*/ &&
-		    $realline > 2) {
-			WARN("NETWORKING_BLOCK_COMMENT_STYLE",
-			     "networking block comments don't use an empty /* line, use /* Comment...\n" . $hereprev);
+		if ($realfile =~ m@^(drivers/net/|net/)@) {
+			if ($prevrawline =~ /^\+[ \t]*\/\*[ \t]*$/ &&
+			    $rawline =~ /^\+[ \t]*\*/ &&
+			    $realline > 2) {
+				WARN("NETWORKING_BLOCK_COMMENT_STYLE",
+				     "networking block comments don't use an empty /* line, use /* Comment...\n" . $hereprev);
+			}
+		} else {
+# 'Normal' with an initial empty /*
+			if ($prevrawline =~ /^\+[ \t]*\/\*[ \t]*\S/ &&
+			    $rawline =~ /^\+[ \t]*\*/ &&
+			    $realline > 2) {
+				WARN("BLOCK_COMMENT_STYLE",
+				     "block comments use an empty /* line, don't use /* Comment...\n" . $hereprev);
+			}
 		}
 
 # Block comments use * on subsequent lines
