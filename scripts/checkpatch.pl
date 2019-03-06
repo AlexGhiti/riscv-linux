@@ -3296,7 +3296,7 @@ sub process {
 			}
 		}
 
-# check for multiple consecutive blank lines
+# check for multiple consecutive blank lines caused by blank line insertion
 		if ($prevline =~ /^[\+ ]\s*$/ &&
 		    $line =~ /^\+\s*$/ &&
 		    $last_blank_line != ($linenr - 1)) {
@@ -3305,6 +3305,16 @@ sub process {
 			    $fix) {
 				fix_delete_line($fixlinenr, $rawline);
 			}
+
+			$last_blank_line = $linenr;
+		}
+
+# check for multiple consecutive blank lines caused by code deletion
+		if ($prevline =~ /^[\+ ]\s*$/ &&
+		    $line =~ /^ \s*$/ &&
+		    $last_blank_line != ($linenr - 1)) {
+			CHK("LINE_SPACING",
+			    "Avoid deleting lines that create consecutive blank lines\n" . $hereprev);
 
 			$last_blank_line = $linenr;
 		}
