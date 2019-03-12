@@ -1,0 +1,69 @@
+Commit:
+^^^^^^^
+
+Should go individual:
+10151ed s390: mmap base does not depend on ADDR_NO_RANDOMIZE personality
+cf552f8 parisc: Take into account stack randomization only when necessary
+
+Should go into the same series:
+3aa3c4b riscv: Make mmap allocation top-down by default
+d23cd1d mips: Use generic mmap top-down layout
+b2d7556 arm: Use generic mmap top-down layout
+fa42352 arm64: Move generic mmap layout functions to mm
+
+TODO:
+^^^^^
+
+* mmap_is_legacy is the same in EVERY arch, factorize.
+=> arm64,mm
+=> next commit should be: in every arch, use the new mmap_is_legacy
+
+Choices made:
+^^^^^^^^^^^^^
+
+* arch_mmap_rnd definition:
+  - is_compat_task: is it correct wrt:
+	arm: Not needed, no compat
+	arm64: ok
+	mips: ok
+
+* mm/util.c:
+- random.h: because does not compile on arm and necessary for randomize_stack_top
+- elf-randomize.h: arch_mmap_rnd
+- elf.h: STACK_RND_MASK
+- personality.h: ADDR_COMPAT_LAYOUT
+- processor.h: STACK_TOP
+- compat.h: is_compat_task
+
+* Can't remove the ifdef CONFIG_COMPAT because of mmap_rnd_compat_bits
+
+* Move randomize_stack_top into mm/util.c so that we can factorize STACK_RND_MASK
+definition.
+
+* Unconditionally add stack randomization gap, but that's already the case on arm64,
+so leave it to reviewers (maybe on 32 bits arch, that can make the difference...)
+
+static unsigned long mmap_base(unsigned long rnd, struct rlimit *rlim_stack)
+{
+       unsigned long gap = rlim_stack->rlim_cur;
+       unsigned long pad = (STACK_RND_MASK << PAGE_SHIFT) + stack_guard_gap;
+
+* arm factorization fixes the case ADDR_IS_32_BIT by using STACK_TOP and not
+TASK_SIZE directly: TASK_SIZE_26
+
+* RLIMIT_INFINITY == legacy mmap
+  4a06370bcb674af88679a4f2c5c87c3e40688935 states this should not be the case.
+  But why is it only on x86 ?
+
+* Removed the comment above MIN_GAP/MAX_GAP because it is not relevant and wrong.
+
+* mmap_base factorization: x86 no, s390 no, powerpc no (DEFAULT_MAP_WINDOW)
+
+* checkpatch warning introduction suggested by hellwig: git grep -C 1 -n -P "^#if defined.+\|\|.*\\\\$"
+  shows we can find both
+
+Tests done:
+^^^^^^^^^^^
+
+- arm64, arm, mips compiled ok
+- riscv built and runtime tested ok
