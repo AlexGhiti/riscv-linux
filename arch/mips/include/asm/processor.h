@@ -30,9 +30,9 @@
 extern unsigned int vced_count, vcei_count;
 
 /*
- * MIPS does have an arch_pick_mmap_layout()
+ * MIPS uses the default implementation of topdown mmap layout.
  */
-#define HAVE_ARCH_PICK_MMAP_LAYOUT 1
+#define ARCH_WANT_DEFAULT_TOPDOWN_MMAP_LAYOUT
 
 #ifdef CONFIG_32BIT
 #ifdef CONFIG_KVM_GUEST
