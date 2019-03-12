@@ -143,7 +143,7 @@ static inline void prefetchw(const void *ptr)
 #endif
 #endif
 
-#define HAVE_ARCH_PICK_MMAP_LAYOUT
+#define ARCH_WANT_DEFAULT_TOPDOWN_MMAP_LAYOUT
 
 #endif
 
