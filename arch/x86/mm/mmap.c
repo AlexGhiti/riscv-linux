@@ -31,6 +31,7 @@
 #include <linux/sched/signal.h>
 #include <linux/sched/mm.h>
 #include <linux/compat.h>
+#include <linux/sizes.h>
 #include <asm/elf.h>
 
 #include "physaddr.h"
@@ -48,8 +49,6 @@ unsigned long task_size_64bit(int full_addr_space)
 {
 	return full_addr_space ? TASK_SIZE_MAX : DEFAULT_MAP_WINDOW;
 }
-
-#define SIZE_128M    (128 * 1024 * 1024UL)
 
 static int mmap_is_legacy(void)
 {
@@ -97,7 +96,7 @@ static unsigned long mmap_base(unsigned long rnd, unsigned long task_size,
 	 * Top of mmap area (just below the process stack).
 	 * Leave an at least ~128 MB hole with possible stack randomization.
 	 */
-	gap_min = SIZE_128M;
+	gap_min = SZ_128M;
 	gap_max = (task_size / 6) * 5;
 
 	if (gap < gap_min)
