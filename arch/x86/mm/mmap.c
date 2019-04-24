@@ -49,14 +49,6 @@ unsigned long task_size_64bit(int full_addr_space)
 	return full_addr_space ? TASK_SIZE_MAX : DEFAULT_MAP_WINDOW;
 }
 
-#ifdef CONFIG_COMPAT
-# define mmap32_rnd_bits  mmap_rnd_compat_bits
-# define mmap64_rnd_bits  mmap_rnd_bits
-#else
-# define mmap32_rnd_bits  mmap_rnd_bits
-# define mmap64_rnd_bits  mmap_rnd_bits
-#endif
-
 #define SIZE_128M    (128 * 1024 * 1024UL)
 
 static int mmap_is_legacy(void)
@@ -127,9 +119,14 @@ static unsigned long mmap_legacy_base(unsigned long rnd,
  * process VM image, sets up which VM layout function to use:
  */
 static void arch_pick_mmap_base(unsigned long *base, unsigned long *legacy_base,
-		unsigned long random_factor, unsigned long task_size,
+		unsigned long task_size,
 		struct rlimit *rlim_stack)
 {
+	unsigned long random_factor = 0UL;
+
+	if (current->flags & PF_RANDOMIZE)
+		random_factor = arch_mmap_rnd();
+
 	*legacy_base = mmap_legacy_base(random_factor, task_size);
 	if (mmap_is_legacy())
 		*base = *legacy_base;
@@ -145,7 +142,7 @@ void arch_pick_mmap_layout(struct mm_struct *mm, struct rlimit *rlim_stack)
 		mm->get_unmapped_area = arch_get_unmapped_area_topdown;
 
 	arch_pick_mmap_base(&mm->mmap_base, &mm->mmap_legacy_base,
-			arch_rnd(mmap64_rnd_bits), task_size_64bit(0),
+			task_size_64bit(0),
 			rlim_stack);
 
 #ifdef CONFIG_HAVE_ARCH_COMPAT_MMAP_BASES
@@ -156,7 +153,7 @@ void arch_pick_mmap_layout(struct mm_struct *mm, struct rlimit *rlim_stack)
 	 * mmap_base, the compat syscall uses mmap_compat_base.
 	 */
 	arch_pick_mmap_base(&mm->mmap_compat_base, &mm->mmap_compat_legacy_base,
-			arch_rnd(mmap32_rnd_bits), task_size_32bit(),
+			task_size_32bit(),
 			rlim_stack);
 #endif
 }
