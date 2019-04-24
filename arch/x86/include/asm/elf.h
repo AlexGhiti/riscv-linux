@@ -6,6 +6,7 @@
  * ELF register definitions..
  */
 #include <linux/thread_info.h>
+#include <linux/compat.h>
 
 #include <asm/ptrace.h>
 #include <asm/user.h>
@@ -300,9 +301,7 @@ do {									\
  */
 static inline int mmap_is_ia32(void)
 {
-	return IS_ENABLED(CONFIG_X86_32) ||
-	       (IS_ENABLED(CONFIG_COMPAT) &&
-		test_thread_flag(TIF_ADDR32));
+	return IS_ENABLED(CONFIG_X86_32) || is_compat_task();
 }
 
 extern unsigned long task_size_32bit(void);

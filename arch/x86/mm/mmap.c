@@ -71,12 +71,20 @@ static unsigned long arch_rnd(unsigned int rndbits)
 {
 	if (!(current->flags & PF_RANDOMIZE))
 		return 0;
+
 	return (get_random_long() & ((1UL << rndbits) - 1)) << PAGE_SHIFT;
 }
 
 unsigned long arch_mmap_rnd(void)
 {
-	return arch_rnd(mmap_is_ia32() ? mmap32_rnd_bits : mmap64_rnd_bits);
+        unsigned long rnd;
+
+        if (is_compat_task())
+                rnd = arch_rnd(mmap_rnd_compat_bits);
+        else
+                rnd = arch_rnd(mmap_rnd_bits);
+
+        return rnd;
 }
 
 static unsigned long mmap_base(unsigned long rnd, unsigned long task_size,

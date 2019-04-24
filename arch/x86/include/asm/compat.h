@@ -228,6 +228,11 @@ static inline bool in_compat_syscall(void)
 	return in_32bit_syscall();
 }
 #define in_compat_syscall in_compat_syscall	/* override the generic impl */
+
+static inline int is_compat_task(void)
+{
+	return IS_ENABLED(CONFIG_COMPAT) && test_thread_flag(TIF_ADDR32);
+}
 #endif
 
 struct compat_siginfo;
