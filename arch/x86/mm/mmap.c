@@ -127,19 +127,17 @@ static void arch_pick_mmap_base(unsigned long *base, unsigned long *legacy_base,
 		random_factor = arch_mmap_rnd();
 
 	*legacy_base = mmap_legacy_base(random_factor, task_size);
-	if (mmap_is_legacy())
+	if (mmap_is_legacy()) {
 		*base = *legacy_base;
-	else
+		mm->get_unmapped_area = arch_get_unmapped_area;
+	} else {
 		*base = mmap_base(random_factor, task_size, rlim_stack);
+		mm->get_unmapped_area = arch_get_unmapped_area_topdown;
+	}
 }
 
 void arch_pick_mmap_layout(struct mm_struct *mm, struct rlimit *rlim_stack)
 {
-	if (mmap_is_legacy())
-		mm->get_unmapped_area = arch_get_unmapped_area;
-	else
-		mm->get_unmapped_area = arch_get_unmapped_area_topdown;
-
 	arch_pick_mmap_base(&mm->mmap_base, &mm->mmap_legacy_base,
 			task_size_64bit(0),
 			rlim_stack);
