@@ -49,11 +49,11 @@ unsigned long task_size_64bit(int full_addr_space)
 	return full_addr_space ? TASK_SIZE_MAX : DEFAULT_MAP_WINDOW;
 }
 
-static unsigned long stack_maxrandom_size(unsigned long task_size)
+static unsigned long stack_maxrandom_size(void)
 {
 	unsigned long max = 0;
 	if (current->flags & PF_RANDOMIZE) {
-		max = (-1UL) & __STACK_RND_MASK(task_size == task_size_32bit());
+		max = (-1UL) & __STACK_RND_MASK(mmap_is_ia32());
 		max <<= PAGE_SHIFT;
 	}
 
@@ -94,7 +94,7 @@ static unsigned long mmap_base(unsigned long rnd, unsigned long task_size,
 			       struct rlimit *rlim_stack)
 {
 	unsigned long gap = rlim_stack->rlim_cur;
-	unsigned long pad = stack_maxrandom_size(task_size) + stack_guard_gap;
+	unsigned long pad = stack_maxrandom_size() + stack_guard_gap;
 	unsigned long gap_min, gap_max;
 
 	/* Values close to RLIM_INFINITY can overflow. */
