@@ -107,18 +107,12 @@ static unsigned long mmap_base(unsigned long rnd, unsigned long task_size,
 	return PAGE_ALIGN(task_size - gap - rnd);
 }
 
-static unsigned long mmap_legacy_base(unsigned long rnd,
-				      unsigned long task_size)
-{
-	return __TASK_UNMAPPED_BASE(task_size) + rnd;
-}
-
 /*
  * This function, called very early during the creation of a new
  * process VM image, sets up which VM layout function to use:
  */
 static void arch_pick_mmap_base(unsigned long *base, unsigned long *legacy_base,
-		unsigned long task_size,
+		unsigned long task_size, unsigned long task_unmapped_base,
 		struct rlimit *rlim_stack)
 {
 	unsigned long random_factor = 0UL;
@@ -126,7 +120,8 @@ static void arch_pick_mmap_base(unsigned long *base, unsigned long *legacy_base,
 	if (current->flags & PF_RANDOMIZE)
 		random_factor = arch_mmap_rnd();
 
-	*legacy_base = mmap_legacy_base(random_factor, task_size);
+	*legacy_base = task_unmapped_base + random_factor;
+
 	if (mmap_is_legacy()) {
 		*base = *legacy_base;
 		mm->get_unmapped_area = arch_get_unmapped_area;
@@ -139,7 +134,7 @@ static void arch_pick_mmap_base(unsigned long *base, unsigned long *legacy_base,
 void arch_pick_mmap_layout(struct mm_struct *mm, struct rlimit *rlim_stack)
 {
 	arch_pick_mmap_base(&mm->mmap_base, &mm->mmap_legacy_base,
-			STACK_TOP,
+			STACK_TOP, TASK_UNMAPPED_BASE,
 			rlim_stack);
 
 #ifdef CONFIG_HAVE_ARCH_COMPAT_MMAP_BASES
@@ -151,6 +146,7 @@ void arch_pick_mmap_layout(struct mm_struct *mm, struct rlimit *rlim_stack)
 	 */
 	arch_pick_mmap_base(&mm->mmap_compat_base, &mm->mmap_compat_legacy_base,
 			task_size_32bit(),
+			__TASK_UNMAPPED_BASE(task_size_32bit()),
 			rlim_stack);
 #endif
 }
