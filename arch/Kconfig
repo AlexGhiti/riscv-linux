@@ -683,6 +683,9 @@ config HAVE_ARCH_COMPAT_MMAP_BASES
 	  This allows 64bit applications to invoke 32-bit mmap() syscall
 	  and vice-versa 32-bit applications to call 64-bit mmap().
 	  Required for applications doing different bitness syscalls.
+	  Architectures selecting this config must define:
+	  - task_size_compat()
+	  - task_unmapped_base_compat()
 
 # This allows to use a set of generic functions to determine mmap base
 # address by giving priority to top-down scheme only if the process

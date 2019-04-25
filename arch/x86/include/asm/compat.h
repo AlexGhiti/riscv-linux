@@ -235,6 +235,18 @@ static inline int is_compat_task(void)
 }
 #endif
 
+#ifdef CONFIG_HAVE_ARCH_COMPAT_MMAP_BASES
+static inline unsigned long task_size_compat(void)
+{
+        return task_size_32bit();
+}
+
+static inline unsigned long task_unmapped_base_compat(void)
+{
+	return __TASK_UNMAPPED_BASE(task_size_compat());
+}
+#endif /* CONFIG_HAVE_ARCH_COMPAT_MMAP_BASES */
+
 struct compat_siginfo;
 int __copy_siginfo_to_user32(struct compat_siginfo __user *to,
 		const kernel_siginfo_t *from, bool x32_ABI);

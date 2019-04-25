@@ -340,23 +340,18 @@ static int mmap_is_legacy(struct rlimit *rlim_stack)
 	if (current->personality & ADDR_COMPAT_LAYOUT)
 		return 1;
 
-	if (rlim_stack->rlim_cur == RLIM_INFINITY)
-		return 1;
+	//if (rlim_stack->rlim_cur == RLIM_INFINITY)
+	//	return 1;
 
 	return sysctl_legacy_va_layout;
 }
 
-/*
- * Leave enough space between the mmap area and the stack to honour ulimit in
- * the face of randomisation.
- */
-#define MIN_GAP		(SZ_128M)
-#define MAX_GAP		(STACK_TOP / 6 * 5)
-
-static unsigned long mmap_base(unsigned long rnd, struct rlimit *rlim_stack)
+static unsigned long mmap_base(unsigned long rnd, unsigned long task_size,
+			struct rlimit *rlim_stack)
 {
 	unsigned long gap = rlim_stack->rlim_cur;
 	unsigned long pad = stack_guard_gap;
+	unsigned long gap_min, gap_max;
 
 	/* Account for stack randomization if necessary */
 	if (current->flags & PF_RANDOMIZE)
@@ -366,28 +361,55 @@ static unsigned long mmap_base(unsigned long rnd, struct rlimit *rlim_stack)
 	if (gap + pad > gap)
 		gap += pad;
 
-	if (gap < MIN_GAP)
-		gap = MIN_GAP;
-	else if (gap > MAX_GAP)
-		gap = MAX_GAP;
+	/*
+         * Top of mmap area (just below the process stack).
+         * Leave an at least ~128 MB hole with possible stack randomization.
+         */
+        gap_min = SZ_128M;
+        gap_max = (task_size / 6) * 5;
 
-	return PAGE_ALIGN(STACK_TOP - gap - rnd);
+	if (gap < gap_min)
+		gap = gap_min;
+	else if (gap > gap_max)
+		gap = gap_max;
+
+	return PAGE_ALIGN(task_size - gap - rnd);
 }
 
-void arch_pick_mmap_layout(struct mm_struct *mm, struct rlimit *rlim_stack)
+static void arch_pick_mmap_base(unsigned long *base, unsigned long *legacy_base,
+                unsigned long random_factor,
+		unsigned long task_size, unsigned long task_unmapped_base,
+                struct rlimit *rlim_stack)
 {
 	unsigned long random_factor = 0UL;
 
 	if (current->flags & PF_RANDOMIZE)
-		random_factor = arch_mmap_rnd();
+		random_factor = arch_mmap_rnd(); //TODO
 
-	if (mmap_is_legacy(rlim_stack)) {
-		mm->mmap_base = TASK_UNMAPPED_BASE + random_factor;
+        *legacy_base = task_unmapped_base + random_factor;
+
+        if (mmap_is_legacy()) {
+                *base = *legacy_base;
 		mm->get_unmapped_area = arch_get_unmapped_area;
-	} else {
-		mm->mmap_base = mmap_base(random_factor, rlim_stack);
+        } else {
+                *base = mmap_base(random_factor, task_size, rlim_stack);
 		mm->get_unmapped_area = arch_get_unmapped_area_topdown;
 	}
+}
+
+void arch_pick_mmap_layout(struct mm_struct *mm, struct rlimit *rlim_stack)
+{
+	arch_pick_mmap_base(&mm->mmap_base, &mm->mmap_legacy_base,
+			random_factor,
+			STACK_TOP, TASK_UNMAPPED_BASE,
+			rlim_stack);
+
+#ifdef CONFIG_HAVE_ARCH_COMPAT_MMAP_BASES
+	arch_pick_mmap_base(&mm->mmap_compat_base, &mm->mmap_compat_legacy_base,
+			random_factor,
+			task_size_compat(), task_unmapped_base_compat(),
+			rlim_stack);
+#endif
 }
 #elif defined(CONFIG_MMU) && !defined(HAVE_ARCH_PICK_MMAP_LAYOUT)
 void arch_pick_mmap_layout(struct mm_struct *mm, struct rlimit *rlim_stack)

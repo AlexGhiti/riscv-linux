@@ -145,8 +145,8 @@ void arch_pick_mmap_layout(struct mm_struct *mm, struct rlimit *rlim_stack)
 	 * mmap_base, the compat syscall uses mmap_compat_base.
 	 */
 	arch_pick_mmap_base(&mm->mmap_compat_base, &mm->mmap_compat_legacy_base,
-			task_size_32bit(),
-			__TASK_UNMAPPED_BASE(task_size_32bit()),
+			task_size_compat(),
+			task_unmapped_base_compat(),
 			rlim_stack);
 #endif
 }
