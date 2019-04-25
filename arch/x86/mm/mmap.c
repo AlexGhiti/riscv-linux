@@ -139,7 +139,7 @@ static void arch_pick_mmap_base(unsigned long *base, unsigned long *legacy_base,
 void arch_pick_mmap_layout(struct mm_struct *mm, struct rlimit *rlim_stack)
 {
 	arch_pick_mmap_base(&mm->mmap_base, &mm->mmap_legacy_base,
-			task_size_64bit(0),
+			STACK_TOP,
 			rlim_stack);
 
 #ifdef CONFIG_HAVE_ARCH_COMPAT_MMAP_BASES
