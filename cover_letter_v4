@@ -1,0 +1,31 @@
+Rebased on top of 5.2rc1
+- Make ARCH_WANT_DEFAULT_TOPDOWN_MMAP_LAYOUT select ARCH_HAS_ELF_RANDOMIZE
+  by default.
+- ARCH_WANT_DEFAULT_TOPDOWN_MMAP_LAYOUT depends on MMU and defines the functions
+  needed by ARCH_HAS_ELF_RANDOMIZE => architecture that use the generic mmap
+  topdown functions cannot have ARCH_HAS_ELF_RANDOMIZE selected without MMU,
+  but it's ok since randomization without MMU does not add much security anyway.
+- There is no common API to determine if a process is 32b, so I came up with
+  !IS_ENABLED(CONFIG_64BIT) || is_compat_task() in [PATCH v4 12/14].
+- Mention in the change log that x86 already takes care of not offseting mmap
+  base address if the task does not want randomization.
+- Re-introduce a comment that should not have been removed.
+- Add Reviewed/Acked-By from Paul, Christoph and Kees, thank you for that.
+- I tried to minimize the changes from the commits in v3 in order to make
+  easier the review of the v4, the commits changed or added are:
+  - [PATCH v4 5/14] arm64, mm: Make randomization selected by generic topdown mmap layout
+  - [PATCH v4 8/14] arm: Use generic mmap top-down layout and brk randomization 
+  - [PATCH v4 11/14] mips: Adjust brk randomization offset to fit generic version
+  - [PATCH v4 12/14] mips: Replace arch specific way to determine 32B task with generic version
+  - [PATCH v4 13/14] mips: Use generic mmap top-down layout and brk randomization
+
+First patch needs to swap Reviewedby/ackedby
+
+9dd780adabe306a3b7f7bda17f0294ff35d10755
+=> Totally wrong, I override ALL arches arch_randomize_brk/arch_mmap_rnd
+   but I really don't know how to do because arm/mips can select ELF_RANDOMIZE
+   when no MMU and then they lose their definition of those functions... 
+1c78c9c4e82153103c7f315c70f7f8b770157ce9
+c7e58a09573d759cd1bdd642e5de107d4e361dc3 rebase 32B into 32bit
+fd18c51d4cb459f21dfd90ec10cd32a537f7cca7 rebase 32B into 32bit
+e3c845fd01ea853f28aa901331365481de7f2898
