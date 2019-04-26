@@ -1,0 +1,3 @@
+Mention that "Replace arch specific way to determine 32B task with generic version"
+could give birth to a new API to determine if a task is 32B.
+Added a few commits but Changed only the merge of mips and arm
