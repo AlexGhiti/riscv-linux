@@ -51,6 +51,9 @@ config RISCV
 	select HAVE_EBPF_JIT if 64BIT
 	select ARCH_HAS_GIGANTIC_PAGE
 	select ARCH_WANT_HUGE_PMD_SHARE if 64BIT
+	select HUGETLBFS
+	select CGROUP_HUGETLB
+	select HUGETLB_PAGE
 
 config MMU
 	def_bool y
