@@ -169,7 +169,7 @@ extern void post_alloc_hook(struct page *page, unsigned int order,
 					gfp_t gfp_flags);
 extern int user_min_free_kbytes;
 
-#if defined CONFIG_COMPACTION || defined CONFIG_CMA
+#if defined CONFIG_COMPACTION || defined CONFIG_CONTIG_ALLOC
 
 /*
  * in mm/compaction.c
