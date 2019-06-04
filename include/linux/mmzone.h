@@ -528,16 +528,13 @@ struct zone {
 	 */
 	unsigned long percpu_drift_mark;
 
-#if defined CONFIG_COMPACTION || defined CONFIG_CMA
+#ifdef CONFIG_COMPACTION
 	/* pfn where compaction free scanner should start */
 	unsigned long		compact_cached_free_pfn;
 	/* pfn where async and sync compaction migration scanner should start */
 	unsigned long		compact_cached_migrate_pfn[2];
 	unsigned long		compact_init_migrate_pfn;
 	unsigned long		compact_init_free_pfn;
-#endif
-
-#ifdef CONFIG_COMPACTION
 	/*
 	 * On compaction failure, 1<<compact_defer_shift compactions
 	 * are skipped before trying again. The number attempted since
@@ -546,9 +543,6 @@ struct zone {
 	unsigned int		compact_considered;
 	unsigned int		compact_defer_shift;
 	int			compact_order_failed;
-#endif
-
-#if defined CONFIG_COMPACTION || defined CONFIG_CMA
 	/* Set to true when the PG_migrate_skip bits should be cleared */
 	bool			compact_blockskip_flush;
 #endif
