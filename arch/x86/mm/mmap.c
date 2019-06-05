@@ -47,14 +47,6 @@ static unsigned long stack_maxrandom_size(unsigned long task_size)
 	return max;
 }
 
-#ifdef CONFIG_COMPAT
-# define mmap32_rnd_bits  mmap_rnd_compat_bits
-# define mmap64_rnd_bits  mmap_rnd_bits
-#else
-# define mmap32_rnd_bits  mmap_rnd_bits
-# define mmap64_rnd_bits  mmap_rnd_bits
-#endif
-
 #define SIZE_128M    (128 * 1024 * 1024UL)
 
 static int mmap_is_legacy(void)
@@ -74,7 +66,11 @@ static unsigned long arch_rnd(unsigned int rndbits)
 
 unsigned long arch_mmap_rnd(void)
 {
-	return arch_rnd(mmap_is_ia32() ? mmap32_rnd_bits : mmap64_rnd_bits);
+#ifdef CONFIG_HAVE_ARCH_MMAP_RND_COMPAT_BITS
+	if (mmap_is_ia32())
+		return arch_rnd(mmap_rnd_compat_bits);
+#endif
+	return arch_rnd(mmap_rnd_bits);
 }
 
 static unsigned long mmap_base(unsigned long rnd, unsigned long task_size,
@@ -131,7 +127,7 @@ void arch_pick_mmap_layout(struct mm_struct *mm, struct rlimit *rlim_stack)
 		mm->get_unmapped_area = arch_get_unmapped_area_topdown;
 
 	arch_pick_mmap_base(&mm->mmap_base,
-			arch_rnd(mmap64_rnd_bits), task_size_64bit(0),
+			arch_rnd(mmap_rnd_bits), task_size_64bit(0),
 			rlim_stack);
 
 #ifdef CONFIG_HAVE_ARCH_COMPAT_MMAP_BASES
@@ -142,7 +138,7 @@ void arch_pick_mmap_layout(struct mm_struct *mm, struct rlimit *rlim_stack)
 	 * mmap_base, the compat syscall uses mmap_compat_base.
 	 */
 	arch_pick_mmap_base(&mm->mmap_compat_base,
-			arch_rnd(mmap32_rnd_bits), task_size_32bit(),
+			arch_rnd(mmap_rnd_compat_bits), task_size_32bit(),
 			rlim_stack);
 #endif
 }
