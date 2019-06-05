@@ -113,13 +113,12 @@ static unsigned long mmap_legacy_base(unsigned long rnd,
  * This function, called very early during the creation of a new
  * process VM image, sets up which VM layout function to use:
  */
-static void arch_pick_mmap_base(unsigned long *base, unsigned long *legacy_base,
+static void arch_pick_mmap_base(unsigned long *base,
 		unsigned long random_factor, unsigned long task_size,
 		struct rlimit *rlim_stack)
 {
-	*legacy_base = mmap_legacy_base(random_factor, task_size);
 	if (mmap_is_legacy())
-		*base = *legacy_base;
+		*base = mmap_legacy_base(random_factor, task_size);
 	else
 		*base = mmap_base(random_factor, task_size, rlim_stack);
 }
@@ -131,7 +130,7 @@ void arch_pick_mmap_layout(struct mm_struct *mm, struct rlimit *rlim_stack)
 	else
 		mm->get_unmapped_area = arch_get_unmapped_area_topdown;
 
-	arch_pick_mmap_base(&mm->mmap_base, &mm->mmap_legacy_base,
+	arch_pick_mmap_base(&mm->mmap_base,
 			arch_rnd(mmap64_rnd_bits), task_size_64bit(0),
 			rlim_stack);
 
@@ -142,23 +141,22 @@ void arch_pick_mmap_layout(struct mm_struct *mm, struct rlimit *rlim_stack)
 	 * applications and 32bit applications. The 64bit syscall uses
 	 * mmap_base, the compat syscall uses mmap_compat_base.
 	 */
-	arch_pick_mmap_base(&mm->mmap_compat_base, &mm->mmap_compat_legacy_base,
+	arch_pick_mmap_base(&mm->mmap_compat_base,
 			arch_rnd(mmap32_rnd_bits), task_size_32bit(),
 			rlim_stack);
 #endif
 }
 
-unsigned long get_mmap_base(int is_legacy)
+unsigned long get_mmap_base(void)
 {
 	struct mm_struct *mm = current->mm;
 
 #ifdef CONFIG_HAVE_ARCH_COMPAT_MMAP_BASES
-	if (in_32bit_syscall()) {
-		return is_legacy ? mm->mmap_compat_legacy_base
-				 : mm->mmap_compat_base;
-	}
+	if (in_32bit_syscall())
+		return mm->mmap_compat_base;
 #endif
-	return is_legacy ? mm->mmap_legacy_base : mm->mmap_base;
+
+	return mm->mmap_base;
 }
 
 const char *arch_vma_name(struct vm_area_struct *vma)
