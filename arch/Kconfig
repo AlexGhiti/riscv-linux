@@ -729,6 +729,22 @@ config HAVE_ARCH_COMPAT_MMAP_BASES
 #
 # - arch_mmap_base_rnd: represents the function to use to get mmap_base random
 #   offset.
+#
+# - STACK_TOP_MMAP_COMPAT_BASE: represents the stack top address for a compat
+#   task in the current system configuration. On some architecures, it is
+#   different from the stack top of the current task: for x86, a 64bit process
+#   can use a 32bit syscall (or MMAP_32BIT) to obtain a 32bit mapping so the
+#   STACK_TOP definition does not apply.
+#
+# - STACK_RND_MASK_MMAP_COMPAT_BASE: represents the stack random offset mask to
+#   use when computing the random gap to leave between the stack and
+#   mmap_compat_base.
+#
+# - TASK_UNMAPPED_MMAP_COMPAT_BASE: represents the mmap legacy start address to
+#   use when computing mmap base in compat legacy mode.
+#
+# - arch_mmap_compat_base_rnd: represents the function to use to get mmap_base
+#   random offset.
 config ARCH_WANT_DEFAULT_TOPDOWN_MMAP_LAYOUT
 	bool
 	depends on MMU
