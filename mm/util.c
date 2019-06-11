@@ -393,6 +393,7 @@ static unsigned long mmap_legacy_base(unsigned long rnd,
 }
 
 static void do_pick_mmap_layout(struct mm_struct *mm,
+			unsigned long *base,
 			unsigned long rnd,
 			unsigned long task_size,
 			unsigned long stack_rnd_mask,
@@ -400,10 +401,10 @@ static void do_pick_mmap_layout(struct mm_struct *mm,
 			struct rlimit *rlim_stack)
 {
 	if (mmap_is_legacy(rlim_stack)) {
-		mm->mmap_base = mmap_legacy_base(rnd, task_unmapped_base);
+		*base = mmap_legacy_base(rnd, task_unmapped_base);
 		mm->get_unmapped_area = arch_get_unmapped_area;
 	} else {
-		mm->mmap_base = mmap_base(rnd, task_size, stack_rnd_mask, rlim_stack);
+		*base = mmap_base(rnd, task_size, stack_rnd_mask, rlim_stack);
 		mm->get_unmapped_area = arch_get_unmapped_area_topdown;
 	}
 }
@@ -430,17 +431,66 @@ static void do_pick_mmap_layout(struct mm_struct *mm,
 #define arch_mmap_base_rnd	arch_mmap_rnd
 #endif
 
+#ifdef CONFIG_HAVE_ARCH_COMPAT_MMAP_BASES
+/*
+ * STACK_TOP_COMPAT_MMAP_BASE represents the stack top address for a compat task
+ * in the current system configuration. On some architecures, it is different
+ * from the stack top of the current task: for x86, a 64bit process can use a
+ * 32bit syscall (or MMAP_32BIT) to obtain a 32bit mapping so the STACK_TOP
+ * definition does not apply.
+ */
+#ifndef STACK_TOP_COMPAT_MMAP_BASE
+#define STACK_TOP_COMPAT_MMAP_BASE		STACK_TOP
+#endif
+
+#ifndef STACK_RND_MASK_COMPAT_MMAP_BASE
+#define STACK_RND_MASK_COMPAT_MMAP_BASE		STACK_RND_MASK
+#endif
+
+#ifndef TASK_UNMAPPED_COMPAT_MMAP_BASE
+#define TASK_UNMAPPED_COMPAT_MMAP_BASE		TASK_UNMAPPED_BASE
+#endif
+
+#ifndef arch_mmap_compat_base_rnd
+#define arch_mmap_compat_base_rnd	arch_mmap_rnd
+#endif
+#endif
+
 void arch_pick_mmap_layout(struct mm_struct *mm, struct rlimit *rlim_stack)
 {
 	unsigned long random_factor = 0UL;
+#ifdef CONFIG_HAVE_ARCH_COMPAT_MMAP_BASES
+	unsigned long random_compat_factor = 0UL;
+#endif
 
+	if (current->flags & PF_RANDOMIZE) {
 		random_factor = arch_mmap_base_rnd();
+#ifdef CONFIG_HAVE_ARCH_COMPAT_MMAP_BASES
+		random_compat_factor = arch_mmap_compat_base_rnd();
+#endif
+	}
 
-	do_pick_mmap_layout(mm, random_factor,
+	do_pick_mmap_layout(mm, &mm->mmap_base,
+			random_factor,
 			STACK_TOP_MMAP_BASE,
 			STACK_RND_MASK_MMAP_BASE,
 			TASK_UNMAPPED_MMAP_BASE,
 			rlim_stack);
+
+#ifdef CONFIG_HAVE_ARCH_COMPAT_MMAP_BASES
+        /*
+         * The mmap syscall mapping base decision depends solely on the
+         * syscall type (64-bit or compat). This applies for 64bit
+         * applications and 32bit applications. The 64bit syscall uses
+         * mmap_base, the compat syscall uses mmap_compat_base.
+         */
+        do_pick_mmap_layout(mm, &mm->mmap_compat_base,
+			random_compat_factor,
+			STACK_TOP_COMPAT_MMAP_BASE,
+			STACK_RND_MASK_COMPAT_MMAP_BASE,
+			TASK_UNMAPPED_COMPAT_MMAP_BASE,
+			rlim_stack);
+#endif
 }
 #elif defined(CONFIG_MMU) && !defined(HAVE_ARCH_PICK_MMAP_LAYOUT)
 void arch_pick_mmap_layout(struct mm_struct *mm, struct rlimit *rlim_stack)
