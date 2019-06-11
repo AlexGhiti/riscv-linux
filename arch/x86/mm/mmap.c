@@ -67,7 +67,7 @@ static unsigned long arch_rnd(unsigned int rndbits)
 unsigned long arch_mmap_rnd(void)
 {
 #ifdef CONFIG_HAVE_ARCH_MMAP_RND_COMPAT_BITS
-	if (mmap_is_ia32())
+	if (is_compat_task())
 		return arch_rnd(mmap_rnd_compat_bits);
 #endif
 	return arch_rnd(mmap_rnd_bits);
