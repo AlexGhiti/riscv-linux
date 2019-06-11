@@ -771,7 +771,6 @@ extern int			bootloader_version;
 
 extern char			ignore_fpu_irq;
 
-#define HAVE_ARCH_PICK_MMAP_LAYOUT 1
 #define ARCH_HAS_PREFETCHW
 #define ARCH_HAS_SPINLOCK_PREFETCH
 
@@ -883,6 +882,14 @@ static inline void spin_lock_prefetch(const void *x)
 
 #define STACK_TOP		TASK_SIZE_LOW
 #define STACK_TOP_MAX		TASK_SIZE_MAX
+
+#define STACK_TOP_MMAP_BASE		task_size_64bit(0)
+#define STACK_RND_MASK_MMAP_BASE	__STACK_RND_MASK(0)
+#define TASK_UNMAPPED_MMAP_BASE		__TASK_UNMAPPED_BASE(task_size_64bit(0))
+
+#define STACK_TOP_COMPAT_MMAP_BASE	task_size_32bit()
+#define STACK_RND_MASK_COMPAT_MMAP_BASE	__STACK_RND_MASK(1)
+#define TASK_UNMAPPED_MMAP_COMPAT_BASE	__TASK_UNMAPPED_BASE(task_size_32bit())
 
 #define INIT_THREAD  {						\
 	.addr_limit		= KERNEL_DS,			\
