@@ -356,6 +356,7 @@ static int mmap_is_legacy(struct rlimit *rlim_stack)
 }
 
 static unsigned long mmap_base(unsigned long rnd, unsigned long task_size,
+				unsigned long stack_rnd_mask,
 				struct rlimit *rlim_stack)
 {
 	unsigned long gap = rlim_stack->rlim_cur;
@@ -364,7 +365,7 @@ static unsigned long mmap_base(unsigned long rnd, unsigned long task_size,
 
 	/* Account for stack randomization if necessary */
 	if (current->flags & PF_RANDOMIZE)
-		pad += (STACK_RND_MASK << PAGE_SHIFT);
+		pad += (((-1UL) & stack_rnd_mask) << PAGE_SHIFT);
 
 	/* Values close to RLIM_INFINITY can overflow. */
 	if (gap + pad > gap)
@@ -385,33 +386,61 @@ static unsigned long mmap_base(unsigned long rnd, unsigned long task_size,
 	return PAGE_ALIGN(task_size - gap - rnd);
 }
 
-static unsigned long mmap_legacy_base(unsigned long rnd)
+static unsigned long mmap_legacy_base(unsigned long rnd,
+				unsigned long task_unmapped_base)
 {
-	return TASK_UNMAPPED_BASE + rnd;
+	return task_unmapped_base + rnd;
 }
 
 static void do_pick_mmap_layout(struct mm_struct *mm,
 			unsigned long rnd,
 			unsigned long task_size,
+			unsigned long stack_rnd_mask,
+			unsigned long task_unmapped_base,
 			struct rlimit *rlim_stack)
 {
 	if (mmap_is_legacy(rlim_stack)) {
-		mm->mmap_base = mmap_legacy_base(rnd);
+		mm->mmap_base = mmap_legacy_base(rnd, task_unmapped_base);
 		mm->get_unmapped_area = arch_get_unmapped_area;
 	} else {
-		mm->mmap_base = mmap_base(rnd, task_size, rlim_stack);
+		mm->mmap_base = mmap_base(rnd, task_size, stack_rnd_mask, rlim_stack);
 		mm->get_unmapped_area = arch_get_unmapped_area_topdown;
 	}
 }
+
+/*
+ * STACK_TOP_MMAP_BASE represents the stack top address to use when computing
+ * mmap_base. On some architecures, it is different from the stack top of the
+ * current task: for x86, a 32bit process can use a 64bit syscall to obtain
+ * a 64bit mapping so the STACK_TOP definition does not apply.
+ */
+#ifndef STACK_TOP_MMAP_BASE
+#define STACK_TOP_MMAP_BASE		STACK_TOP
+#endif
+
+#ifndef STACK_RND_MASK_MMAP_BASE
+#define STACK_RND_MASK_MMAP_BASE	STACK_RND_MASK
+#endif
+
+#ifndef TASK_UNMAPPED_MMAP_BASE
+#define TASK_UNMAPPED_MMAP_BASE		TASK_UNMAPPED_BASE
+#endif
+
+#ifndef arch_mmap_base_rnd
+#define arch_mmap_base_rnd	arch_mmap_rnd
+#endif
 
 void arch_pick_mmap_layout(struct mm_struct *mm, struct rlimit *rlim_stack)
 {
 	unsigned long random_factor = 0UL;
 
-	if (current->flags & PF_RANDOMIZE)
-		random_factor = arch_mmap_rnd();
+		random_factor = arch_mmap_base_rnd();
 
-	do_pick_mmap_layout(mm, random_factor, STACK_TOP, rlim_stack);
+	do_pick_mmap_layout(mm, random_factor,
+			STACK_TOP_MMAP_BASE,
+			STACK_RND_MASK_MMAP_BASE,
+			TASK_UNMAPPED_MMAP_BASE,
+			rlim_stack);
 }
 #elif defined(CONFIG_MMU) && !defined(HAVE_ARCH_PICK_MMAP_LAYOUT)
 void arch_pick_mmap_layout(struct mm_struct *mm, struct rlimit *rlim_stack)
