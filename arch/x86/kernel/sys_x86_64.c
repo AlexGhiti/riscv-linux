@@ -121,7 +121,7 @@ static void find_start_end(unsigned long addr, unsigned long flags,
 		return;
 	}
 
-	*begin	= get_mmap_base(1);
+	*begin	= get_mmap_base();
 	if (in_32bit_syscall())
 		*end = task_size_32bit();
 	else
@@ -211,7 +211,7 @@ get_unmapped_area:
 	info.flags = VM_UNMAPPED_AREA_TOPDOWN;
 	info.length = len;
 	info.low_limit = PAGE_SIZE;
-	info.high_limit = get_mmap_base(0);
+	info.high_limit = get_mmap_base();
 
 	/*
 	 * If hint address is above DEFAULT_MAP_WINDOW, look for unmapped area

@@ -86,7 +86,7 @@ static unsigned long hugetlb_get_unmapped_area_bottomup(struct file *file,
 
 	info.flags = 0;
 	info.length = len;
-	info.low_limit = get_mmap_base(1);
+	info.low_limit = get_mmap_base();
 
 	/*
 	 * If hint address is above DEFAULT_MAP_WINDOW, look for unmapped area
@@ -106,7 +106,7 @@ static unsigned long hugetlb_get_unmapped_area_topdown(struct file *file,
 {
 	struct hstate *h = hstate_file(file);
 	struct vm_unmapped_area_info info;
-	unsigned long mmap_base = get_mmap_base(0);
+	unsigned long mmap_base = get_mmap_base();
 
 	info.flags = VM_UNMAPPED_AREA_TOPDOWN;
 	info.length = len;
