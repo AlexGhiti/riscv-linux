@@ -1,0 +1,6 @@
+- Rebased on top of next-20190719
+- Added various Acked/Reviewed-by from Kees and Catalin
+- Patch v4 08/14: Added the note suggested by Kees regarding the removal
+  of STACK_RND_MASK that is safe doing.
+- Patch v4 14/14: Fix merge issue with recently merged huge page support
+
