@@ -18,6 +18,8 @@
 #include <asm/pgtable.h>
 #include <asm/io.h>
 
+unsigned int pgtable_l4_enabled = 1;
+
 unsigned long empty_zero_page[PAGE_SIZE / sizeof(unsigned long)]
 							__page_aligned_bss;
 EXPORT_SYMBOL(empty_zero_page);
@@ -199,15 +201,22 @@ static void __init create_pte_mapping(pte_t *ptep,
 
 #ifndef __PAGETABLE_PMD_FOLDED
 
+pud_t trampoline_pud[PTRS_PER_PUD] __page_aligned_bss;
 pmd_t trampoline_pmd[PTRS_PER_PMD] __page_aligned_bss;
+pud_t fixmap_pud[PTRS_PER_PUD] __page_aligned_bss;
 pmd_t fixmap_pmd[PTRS_PER_PMD] __page_aligned_bss;
 
 #if MAX_EARLY_MAPPING_SIZE < PGDIR_SIZE
 #define NUM_EARLY_PMDS		1UL
+#define NUM_EARLY_PUDS		1UL	// TODO ALEX check all of that
 #else
 #define NUM_EARLY_PMDS		(1UL + MAX_EARLY_MAPPING_SIZE / PGDIR_SIZE)
+#define NUM_EARLY_PUDS		(1UL + MAX_EARLY_MAPPING_SIZE / PGDIR_SIZE)
 #endif
+// TODO ALEX
+//pmd_t early_pmd[NUM_EARLY_PMDS][PTRS_PER_PMD] __initdata __aligned(PAGE_SIZE);
 pmd_t early_pmd[PTRS_PER_PMD * NUM_EARLY_PMDS] __initdata __aligned(PAGE_SIZE);
+pud_t early_pud[PTRS_PER_PUD * NUM_EARLY_PUDS] __initdata __aligned(PAGE_SIZE);
 
 static pmd_t *__init get_pmd_virt(phys_addr_t pa)
 {
@@ -219,6 +228,16 @@ static pmd_t *__init get_pmd_virt(phys_addr_t pa)
 	}
 }
 
+static pud_t *__init get_pud_virt(phys_addr_t pa)
+{
+	if (mmu_enabled) {
+		clear_fixmap(FIX_PUD);
+		return (pud_t *)set_fixmap_offset(FIX_PUD, pa);
+	} else {
+		return (pud_t *)((uintptr_t)pa);
+	}
+}
+
 static phys_addr_t __init alloc_pmd(uintptr_t va)
 {
 	uintptr_t pmd_num;
@@ -226,9 +245,23 @@ static phys_addr_t __init alloc_pmd(uintptr_t va)
 	if (mmu_enabled)
 		return memblock_phys_alloc(PAGE_SIZE, PAGE_SIZE);
 
-	pmd_num = (va - PAGE_OFFSET) >> PGDIR_SHIFT;
+	// TODO ALEX when mapping FIXADDR_START => this is wrong since
+	// FIXADDR_START < PAGE_OFFSET
+	pmd_num = (va - PAGE_OFFSET) >> PUD_SHIFT;
 	BUG_ON(pmd_num >= NUM_EARLY_PMDS);
 	return (uintptr_t)&early_pmd[pmd_num * PTRS_PER_PMD];
+}
+
+static phys_addr_t __init alloc_pud(uintptr_t va)
+{
+	uintptr_t pud_num;
+
+	if (mmu_enabled)
+		return memblock_phys_alloc(PAGE_SIZE, PAGE_SIZE);
+
+	pud_num = (va - PAGE_OFFSET) >> PGDIR_SHIFT;
+	BUG_ON(pud_num >= NUM_EARLY_PUDS);
+	return (uintptr_t)&early_pud[pud_num * PTRS_PER_PUD];
 }
 
 static void __init create_pmd_mapping(pmd_t *pmdp,
@@ -258,13 +291,13 @@ static void __init create_pmd_mapping(pmd_t *pmdp,
 	create_pte_mapping(ptep, va, pa, sz, prot);
 }
 
-#define pgd_next_t		pmd_t
-#define alloc_pgd_next(__va)	alloc_pmd(__va)
-#define get_pgd_next_virt(__pa)	get_pmd_virt(__pa)
+#define pgd_next_t		pud_t
+#define alloc_pgd_next(__va)	alloc_pud(__va)
+#define get_pgd_next_virt(__pa)	get_pud_virt(__pa)
 #define create_pgd_next_mapping(__nextp, __va, __pa, __sz, __prot)	\
-	create_pmd_mapping(__nextp, __va, __pa, __sz, __prot)
+	create_pud_mapping(__nextp, __va, __pa, __sz, __prot)
 #define PTE_PARENT_SIZE		PMD_SIZE
-#define fixmap_pgd_next		fixmap_pmd
+#define fixmap_pgd_next		fixmap_pud
 #else
 #define pgd_next_t		pte_t
 #define alloc_pgd_next(__va)	alloc_pte(__va)
@@ -274,6 +307,33 @@ static void __init create_pmd_mapping(pmd_t *pmdp,
 #define PTE_PARENT_SIZE		PGDIR_SIZE
 #define fixmap_pgd_next		fixmap_pte
 #endif
+
+static void __init create_pud_mapping(pud_t *pudp,
+				      uintptr_t va, phys_addr_t pa,
+				      phys_addr_t sz, pgprot_t prot)
+{
+	pmd_t *nextp;
+	phys_addr_t next_phys;
+	uintptr_t pud_index = pud_index(va);
+
+	if (sz == PUD_SIZE) {
+		if (pud_val(pudp[pud_index]) == 0)
+			pudp[pud_index] = pfn_pud(PFN_DOWN(pa), prot);
+		return;
+	}
+
+	if (pud_val(pudp[pud_index]) == 0) {
+		next_phys = alloc_pmd(va);
+		pudp[pud_index] = pfn_pud(PFN_DOWN(next_phys), PAGE_TABLE);
+		nextp = get_pmd_virt(next_phys);
+		memset(nextp, 0, PAGE_SIZE);
+	} else {
+		next_phys = PFN_PHYS(_pud_pfn(pudp[pud_index]));
+		nextp = get_pmd_virt(next_phys);
+	}
+
+	create_pmd_mapping(nextp, va, pa, sz, prot);
+}
 
 static void __init create_pgd_mapping(pgd_t *pgdp,
 				      uintptr_t va, phys_addr_t pa,
@@ -356,15 +416,21 @@ asmlinkage void __init setup_vm(uintptr_t dtb_pa)
 
 	/* Setup early PGD for fixmap */
 	create_pgd_mapping(early_pg_dir, FIXADDR_START,
-			   (uintptr_t)fixmap_pgd_next, PGDIR_SIZE, PAGE_TABLE);
+			   (uintptr_t)fixmap_pud, PGDIR_SIZE, PAGE_TABLE);
+
+	create_pud_mapping(fixmap_pud, FIXADDR_START,
+			   (uintptr_t)fixmap_pmd, PUD_SIZE, PAGE_TABLE);
 
 #ifndef __PAGETABLE_PMD_FOLDED
 	/* Setup fixmap PMD */
 	create_pmd_mapping(fixmap_pmd, FIXADDR_START,
 			   (uintptr_t)fixmap_pte, PMD_SIZE, PAGE_TABLE);
+
 	/* Setup trampoline PGD and PMD */
 	create_pgd_mapping(trampoline_pg_dir, PAGE_OFFSET,
-			   (uintptr_t)trampoline_pmd, PGDIR_SIZE, PAGE_TABLE);
+			   (uintptr_t)trampoline_pud, PGDIR_SIZE, PAGE_TABLE);
+	create_pud_mapping(trampoline_pud, PAGE_OFFSET,
+			   (uintptr_t)trampoline_pmd, PUD_SIZE, PAGE_TABLE);
 	create_pmd_mapping(trampoline_pmd, PAGE_OFFSET,
 			   load_pa, PMD_SIZE, PAGE_KERNEL_EXEC);
 #else
@@ -433,6 +499,7 @@ static void __init setup_vm_final(void)
 	/* Clear fixmap PTE and PMD mappings */
 	clear_fixmap(FIX_PTE);
 	clear_fixmap(FIX_PMD);
+	clear_fixmap(FIX_PUD);
 
 	/* Move to swapper page table */
 	csr_write(sptbr, PFN_DOWN(__pa(swapper_pg_dir)) | SATP_MODE);
