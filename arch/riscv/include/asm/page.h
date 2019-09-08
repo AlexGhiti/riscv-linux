@@ -26,14 +26,26 @@
 #define HPAGE_MASK              (~(HPAGE_SIZE - 1))
 #define HUGETLB_PAGE_ORDER      (HPAGE_SHIFT - PAGE_SHIFT)
 
+#ifdef CONFIG_64BIT
+/*
+ * By default, CONFIG_PAGE_OFFSET value corresponds to SV48 address space so
+ * define the PAGE_OFFSET value for SV39.
+ */
+#define PAGE_OFFSET_L3		0xffffffe000000000
+#define PAGE_OFFSET_L4		_AC(CONFIG_PAGE_OFFSET, UL)
 /*
  * PAGE_OFFSET -- the first address of the first page of memory.
  * When not using MMU this corresponds to the first free page in
  * physical memory (aligned on a page boundary).
  */
 #define PAGE_OFFSET		kernel_virt_addr
+#define KERN_VIRT_SIZE		(pgtable_l4_enabled ? \
+					-PAGE_OFFSET_L4 : -PAGE_OFFSET_L3)
+#else
+#define PAGE_OFFSET		_AC(CONFIG_PAGE_OFFSET, UL)
+#define KERN_VIRT_SIZE		-PAGE_OFFSET
+#endif /* CONFIG_64BIT */
 
-#define KERN_VIRT_SIZE		(-_AC(CONFIG_PAGE_OFFSET, UL))
 
 #ifndef __ASSEMBLY__
 

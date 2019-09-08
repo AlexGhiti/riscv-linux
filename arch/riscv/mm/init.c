@@ -24,6 +24,17 @@
 
 #include "../kernel/head.h"
 
+bool pgtable_l4_enabled = IS_ENABLED(CONFIG_64BIT);
+EXPORT_SYMBOL(pgtable_l4_enabled);
+
+#ifdef CONFIG_64BIT
+uint64_t satp_mode = SATP_MODE_48;
+#else
+uint64_t satp_mode = SATP_MODE_32;
+#endif
+EXPORT_SYMBOL(satp_mode);
+
+
 unsigned long empty_zero_page[PAGE_SIZE / sizeof(unsigned long)]
 							__page_aligned_bss;
 EXPORT_SYMBOL(empty_zero_page);
@@ -249,9 +260,12 @@ static void __init create_pte_mapping(pte_t *ptep,
 
 #ifndef __PAGETABLE_PMD_FOLDED
 
+pud_t trampoline_pud[PTRS_PER_PUD] __page_aligned_bss;
 pmd_t trampoline_pmd[PTRS_PER_PMD] __page_aligned_bss;
+pud_t fixmap_pud[PTRS_PER_PUD] __page_aligned_bss;
 pmd_t fixmap_pmd[PTRS_PER_PMD] __page_aligned_bss;
 pmd_t early_pmd[PTRS_PER_PMD] __initdata __aligned(PAGE_SIZE);
+pud_t early_pud[PTRS_PER_PUD] __initdata __aligned(PAGE_SIZE);
 
 static pmd_t *__init get_pmd_virt(phys_addr_t pa)
 {
@@ -263,14 +277,36 @@ static pmd_t *__init get_pmd_virt(phys_addr_t pa)
 	}
 }
 
+static pud_t *__init get_pud_virt(phys_addr_t pa)
+{
+	if (mmu_enabled) {
+		clear_fixmap(FIX_PUD);
+		return (pud_t *)set_fixmap_offset(FIX_PUD, pa);
+	} else {
+		return (pud_t *)((uintptr_t)pa);
+	}
+}
+
 static phys_addr_t __init alloc_pmd(uintptr_t va)
 {
 	if (mmu_enabled)
 		return memblock_phys_alloc(PAGE_SIZE, PAGE_SIZE);
 
-	BUG_ON((va - kernel_load_addr) >> PGDIR_SHIFT);
+	/* Only one PMD is available for early mapping */
+	BUG_ON((va - kernel_virt_addr) >> PUD_SHIFT);
 
 	return (uintptr_t)early_pmd;
+}
+
+static phys_addr_t __init alloc_pud(uintptr_t va)
+{
+	if (mmu_enabled)
+		return memblock_phys_alloc(PAGE_SIZE, PAGE_SIZE);
+
+	/* Only one PUD is available for early mapping */
+	BUG_ON((va - kernel_virt_addr) >> PGDIR_SHIFT);
+
+	return (uintptr_t)early_pud;
 }
 
 static void __init create_pmd_mapping(pmd_t *pmdp,
@@ -300,12 +336,15 @@ static void __init create_pmd_mapping(pmd_t *pmdp,
 	create_pte_mapping(ptep, va, pa, sz, prot);
 }
 
-#define pgd_next_t		pmd_t
-#define alloc_pgd_next(__va)	alloc_pmd(__va)
-#define get_pgd_next_virt(__pa)	get_pmd_virt(__pa)
+#define pgd_next_t		pud_t
+#define alloc_pgd_next(__va)	alloc_pud(__va)
+#define get_pgd_next_virt(__pa)	get_pud_virt(__pa)
 #define create_pgd_next_mapping(__nextp, __va, __pa, __sz, __prot)	\
-	create_pmd_mapping(__nextp, __va, __pa, __sz, __prot)
-#define fixmap_pgd_next		fixmap_pmd
+	create_pud_mapping(__nextp, __va, __pa, __sz, __prot)
+#define fixmap_pgd_next		(pgtable_l4_enabled ? \
+			(uintptr_t)fixmap_pud : (uintptr_t)fixmap_pmd)
+#define trampoline_pgd_next	(pgtable_l4_enabled ? \
+			(uintptr_t)trampoline_pud : (uintptr_t)trampoline_pmd)
 #else
 #define pgd_next_t		pte_t
 #define alloc_pgd_next(__va)	alloc_pte(__va)
@@ -315,6 +354,33 @@ static void __init create_pmd_mapping(pmd_t *pmdp,
 #define fixmap_pgd_next		fixmap_pte
 #endif
 
+static void __init create_pud_mapping(pud_t *pudp,
+				      uintptr_t va, phys_addr_t pa,
+				      phys_addr_t sz, pgprot_t prot)
+{
+	pmd_t *nextp;
+	phys_addr_t next_phys;
+	uintptr_t pud_index = pud_index(va);
+
+	if (sz == PUD_SIZE) {
+		if (pud_val(pudp[pud_index]) == 0)
+			pudp[pud_index] = pfn_pud(PFN_DOWN(pa), prot);
+		return;
+	}
+
+	if (pud_val(pudp[pud_index]) == 0) {
+		next_phys = alloc_pmd(va);
+		pudp[pud_index] = pfn_pud(PFN_DOWN(next_phys), PAGE_TABLE);
+		nextp = get_pmd_virt(next_phys);
+		memset(nextp, 0, PAGE_SIZE);
+	} else {
+		next_phys = PFN_PHYS(_pud_pfn(pudp[pud_index]));
+		nextp = get_pmd_virt(next_phys);
+	}
+
+	create_pmd_mapping(nextp, va, pa, sz, prot);
+}
+
 static void __init create_pgd_mapping(pgd_t *pgdp,
 				      uintptr_t va, phys_addr_t pa,
 				      phys_addr_t sz, pgprot_t prot)
@@ -322,6 +388,13 @@ static void __init create_pgd_mapping(pgd_t *pgdp,
 	pgd_next_t *nextp;
 	phys_addr_t next_phys;
 	uintptr_t pgd_index = pgd_index(va);
+
+#ifndef __PAGETABLE_PMD_FOLDED
+	if (!pgtable_l4_enabled) {
+		create_pud_mapping((pud_t *)pgdp, va, pa, sz, prot);
+		return;
+	}
+#endif
 
 	if (sz == PGDIR_SIZE) {
 		if (pgd_val(pgdp[pgd_index]) == 0)
@@ -451,15 +524,22 @@ asmlinkage void __init setup_vm(uintptr_t dtb_pa)
 
 	/* Setup early PGD for fixmap */
 	create_pgd_mapping(early_pg_dir, FIXADDR_START,
-			   (uintptr_t)fixmap_pgd_next, PGDIR_SIZE, PAGE_TABLE);
+			   fixmap_pgd_next, PGDIR_SIZE, PAGE_TABLE);
 
 #ifndef __PAGETABLE_PMD_FOLDED
-	/* Setup fixmap PMD */
+	/* Setup fixmap PUD and PMD */
+	if (pgtable_l4_enabled)
+		create_pud_mapping(fixmap_pud, FIXADDR_START,
+			   (uintptr_t)fixmap_pmd, PUD_SIZE, PAGE_TABLE);
 	create_pmd_mapping(fixmap_pmd, FIXADDR_START,
 			   (uintptr_t)fixmap_pte, PMD_SIZE, PAGE_TABLE);
+
 	/* Setup trampoline PGD and PMD */
 	create_pgd_mapping(trampoline_pg_dir, kernel_virt_addr,
-			   (uintptr_t)trampoline_pmd, PGDIR_SIZE, PAGE_TABLE);
+			   trampoline_pgd_next, PGDIR_SIZE, PAGE_TABLE);
+	if (pgtable_l4_enabled)
+		create_pud_mapping(trampoline_pud, kernel_virt_addr,
+			   (uintptr_t)trampoline_pmd, PUD_SIZE, PAGE_TABLE);
 	create_pmd_mapping(trampoline_pmd, kernel_virt_addr,
 			   load_pa, PMD_SIZE, PAGE_KERNEL_EXEC);
 #else
@@ -490,6 +570,27 @@ asmlinkage void __init setup_vm(uintptr_t dtb_pa)
 	dtb_early_va = (void *)fix_to_virt(FIX_FDT) + (dtb_pa & ~PAGE_MASK);
 	/* Save physical address for memblock reservation */
 	dtb_early_pa = dtb_pa;
+}
+
+/*
+ * This function is called only if the current kernel is 64bit and the HW
+ * does not support sv48.
+ */
+asmlinkage __init void setup_vm_fold_pud(void)
+{
+	pgtable_l4_enabled = false;
+	kernel_virt_addr = PAGE_OFFSET_L3;
+	satp_mode = SATP_MODE_39;
+
+	/*
+	 * PTE/PMD levels do not need to be cleared as they are common between
+	 * 3- and 4-level page tables: the 30 least significant bits
+	 * (2 * 9 + 12) are common.
+	 */
+	memset(trampoline_pg_dir, 0, sizeof(pgd_t) * PTRS_PER_PGD);
+	memset(early_pg_dir, 0, sizeof(pgd_t) * PTRS_PER_PGD);
+
+	setup_vm(dtb_early_pa);
 }
 
 static void __init setup_vm_final(void)
@@ -530,9 +631,10 @@ static void __init setup_vm_final(void)
 	/* Clear fixmap PTE and PMD mappings */
 	clear_fixmap(FIX_PTE);
 	clear_fixmap(FIX_PMD);
+	clear_fixmap(FIX_PUD);
 
 	/* Move to swapper page table */
-	csr_write(CSR_SATP, PFN_DOWN(__pa_symbol(swapper_pg_dir)) | SATP_MODE);
+	csr_write(CSR_SATP, PFN_DOWN(__pa_symbol(swapper_pg_dir)) | satp_mode);
 	local_flush_tlb_all();
 }
 #else
