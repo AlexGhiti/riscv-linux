@@ -109,13 +109,15 @@ relocate:
 	add ra, ra, a1
 
 	/* Point stvec to virtual address of intruction after satp write */
+	# TODO ALEX Actually point stvec to 4level early_pg_dir here
 	la a2, 1f
 	add a2, a2, a1
-	csrw CSR_STVEC, a2
+	csrw CSR_STVEC, a2 
 
+	/* 1/ First try with a 4-level page table */
 	/* Compute satp for kernel page tables, but don't load it yet */
 	srl a2, a0, PAGE_SHIFT
-	li a1, SATP_MODE
+	li a1, SATP_MODE_48
 	or a2, a2, a1
 
 	/*
@@ -124,11 +126,22 @@ relocate:
 	 * full fence here because setup_vm() just wrote these PTEs and we need
 	 * to ensure the new translations are in use.
 	 */
-	la a0, trampoline_pg_dir
-	srl a0, a0, PAGE_SHIFT
-	or a0, a0, a1
+	la a3, trampoline_pg_dir
+	srl a3, a3, PAGE_SHIFT
+	or a3, a3, a1
 	sfence.vma
-	csrw CSR_SATP, a0
+	csrw CSR_SATP, a3
+
+	/*
+	 * If we fall through here, that means the HW does not support SV48.
+	 * We need a 3-level page table then.
+	 * Note that a0 still contains early_pg_dir address.
+	 */
+	call setup_vm_fold_pud
+	srl a3, a0, PAGE_SHIFT
+	li a1, SATP_MODE_39
+	or a3, a3, a1
+	csrw CSR_SATP, a3	
 .align 2
 1:
 	/* Set trap vector to spin forever to help debug */

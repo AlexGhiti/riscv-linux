@@ -8,7 +8,7 @@
 
 #include <linux/const.h>
 
-extern unsigned int pgtable_l4_enabled;
+extern bool pgtable_l4_enabled;
 
 /* (pgtable_l4_enabled ? 39: 30) */
 #define PGDIR_SHIFT      39

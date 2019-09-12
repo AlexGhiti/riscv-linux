@@ -18,7 +18,7 @@
 #include <asm/pgtable.h>
 #include <asm/io.h>
 
-unsigned int pgtable_l4_enabled = 1;
+bool pgtable_l4_enabled = true;
 
 unsigned long empty_zero_page[PAGE_SIZE / sizeof(unsigned long)]
 							__page_aligned_bss;
@@ -245,8 +245,6 @@ static phys_addr_t __init alloc_pmd(uintptr_t va)
 	if (mmu_enabled)
 		return memblock_phys_alloc(PAGE_SIZE, PAGE_SIZE);
 
-	// TODO ALEX when mapping FIXADDR_START => this is wrong since
-	// FIXADDR_START < PAGE_OFFSET
 	pmd_num = (va - PAGE_OFFSET) >> PUD_SHIFT;
 	BUG_ON(pmd_num >= NUM_EARLY_PMDS);
 	return (uintptr_t)&early_pmd[pmd_num * PTRS_PER_PMD];
@@ -295,7 +293,9 @@ static void __init create_pmd_mapping(pmd_t *pmdp,
 #define alloc_pgd_next(__va)	alloc_pud(__va)
 #define get_pgd_next_virt(__pa)	get_pud_virt(__pa)
 #define create_pgd_next_mapping(__nextp, __va, __pa, __sz, __prot)	\
-	create_pud_mapping(__nextp, __va, __pa, __sz, __prot)
+	pgtable_l4_enabled ?						\
+		create_pud_mapping(__nextp, __va, __pa, __sz, __prot):	\
+		create_pmd_mapping(__nextp, __va, __pa, __sz, __prot)
 #define PTE_PARENT_SIZE		PMD_SIZE
 #define fixmap_pgd_next		fixmap_pud
 #else
@@ -339,7 +339,6 @@ static void __init create_pgd_mapping(pgd_t *pgdp,
 				      uintptr_t va, phys_addr_t pa,
 				      phys_addr_t sz, pgprot_t prot)
 {
-	pgd_next_t *nextp;
 	phys_addr_t next_phys;
 	uintptr_t pgd_index = pgd_index(va);
 
@@ -350,10 +349,30 @@ static void __init create_pgd_mapping(pgd_t *pgdp,
 	}
 
 	if (pgd_val(pgdp[pgd_index]) == 0) {
-		next_phys = alloc_pgd_next(va);
+#ifndef __PAGETABLE_PMD_FOLDED
+		if (pgtable_l4_enabled) {
+			pud_t nextp;
+
+			next_phys = alloc_pud(va);
+			pgdp[pgd_index] = pfn_pgd(PFN_DOWN(next_phys), PAGE_TABLE);
+			nextp = get_pud_virt(next_phys);
+			memset(nextp, 0, PAGE_SIZE);
+		} else {
+			pmd_t nextp;
+
+			next_phys = alloc_pmd(va);
+			pgdp[pgd_index] = pfn_pgd(PFN_DOWN(next_phys), PAGE_TABLE);
+			nextp = get_pmd_virt(next_phys);
+			memset(nextp, 0, PAGE_SIZE);
+		}
+#else
+		pte_t nextp;
+
+		next_phys = alloc_pte(va);
 		pgdp[pgd_index] = pfn_pgd(PFN_DOWN(next_phys), PAGE_TABLE);
-		nextp = get_pgd_next_virt(next_phys);
+		nextp = get_pte_virt(next_phys);
 		memset(nextp, 0, PAGE_SIZE);
+#endif
 	} else {
 		next_phys = PFN_PHYS(_pgd_pfn(pgdp[pgd_index]));
 		nextp = get_pgd_next_virt(next_phys);
@@ -393,6 +412,7 @@ static uintptr_t __init best_map_size(phys_addr_t base, phys_addr_t size)
 	"not use absolute addressing."
 #endif
 
+// TODO ALEX: setup_vm should prepare both early_pg_dir 4level and 3level page tables.
 asmlinkage void __init setup_vm(uintptr_t dtb_pa)
 {
 	uintptr_t va, end_va;
@@ -418,11 +438,10 @@ asmlinkage void __init setup_vm(uintptr_t dtb_pa)
 	create_pgd_mapping(early_pg_dir, FIXADDR_START,
 			   (uintptr_t)fixmap_pud, PGDIR_SIZE, PAGE_TABLE);
 
+#ifndef __PAGETABLE_PMD_FOLDED
+	/* Setup fixmap PUD and PMD */
 	create_pud_mapping(fixmap_pud, FIXADDR_START,
 			   (uintptr_t)fixmap_pmd, PUD_SIZE, PAGE_TABLE);
-
-#ifndef __PAGETABLE_PMD_FOLDED
-	/* Setup fixmap PMD */
 	create_pmd_mapping(fixmap_pmd, FIXADDR_START,
 			   (uintptr_t)fixmap_pte, PMD_SIZE, PAGE_TABLE);
 
@@ -459,6 +478,17 @@ asmlinkage void __init setup_vm(uintptr_t dtb_pa)
 
 	/* Save pointer to DTB for early FDT parsing */
 	dtb_early_va = (void *)fix_to_virt(FIX_FDT) + (dtb_pa & ~PAGE_MASK);
+}
+
+/*
+ * This function is called only if the current kernel is 64bit and the HW
+ * does not support sv48: then we have to fold the pud level of early_pg_dir
+ * into pgd. Note that trampoline_pg_dir does not need the same treatment as
+ * in 4-level it uses a 2MB page which becomes a 4KB page in 3-level.
+ */
+static void __init setup_vm_fold_pud(void)
+{
+
 }
 
 static void __init setup_vm_final(void)
