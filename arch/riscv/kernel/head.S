@@ -126,11 +126,11 @@ relocate:
 	 * full fence here because setup_vm() just wrote these PTEs and we need
 	 * to ensure the new translations are in use.
 	 */
-	la a3, trampoline_pg_dir
-	srl a3, a3, PAGE_SHIFT
-	or a3, a3, a1
-	sfence.vma
-	csrw CSR_SATP, a3
+	#la a3, trampoline_pg_dir
+	#srl a3, a3, PAGE_SHIFT
+	#or a3, a3, a1
+	#sfence.vma
+	#csrw CSR_SATP, a3
 
 	/*
 	 * If we fall through here, that means the HW does not support SV48.
@@ -138,7 +138,8 @@ relocate:
 	 * Note that a0 still contains early_pg_dir address.
 	 */
 	call setup_vm_fold_pud
-	srl a3, a0, PAGE_SHIFT
+	la a3, trampoline_pg_dir
+	srl a3, a3, PAGE_SHIFT
 	li a1, SATP_MODE_39
 	or a3, a3, a1
 	csrw CSR_SATP, a3	

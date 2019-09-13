@@ -351,34 +351,60 @@ static void __init create_pgd_mapping(pgd_t *pgdp,
 	if (pgd_val(pgdp[pgd_index]) == 0) {
 #ifndef __PAGETABLE_PMD_FOLDED
 		if (pgtable_l4_enabled) {
-			pud_t nextp;
+			pud_t *nextp;
 
 			next_phys = alloc_pud(va);
 			pgdp[pgd_index] = pfn_pgd(PFN_DOWN(next_phys), PAGE_TABLE);
 			nextp = get_pud_virt(next_phys);
 			memset(nextp, 0, PAGE_SIZE);
+
+			create_pud_mapping(nextp, va, pa, sz, prot);
 		} else {
-			pmd_t nextp;
+			pmd_t *nextp;
 
 			next_phys = alloc_pmd(va);
 			pgdp[pgd_index] = pfn_pgd(PFN_DOWN(next_phys), PAGE_TABLE);
 			nextp = get_pmd_virt(next_phys);
 			memset(nextp, 0, PAGE_SIZE);
+
+			create_pmd_mapping(nextp, va, pa, sz, prot);
 		}
 #else
-		pte_t nextp;
+		pte_t *nextp;
 
 		next_phys = alloc_pte(va);
 		pgdp[pgd_index] = pfn_pgd(PFN_DOWN(next_phys), PAGE_TABLE);
 		nextp = get_pte_virt(next_phys);
 		memset(nextp, 0, PAGE_SIZE);
+
+		create_pte_mapping(nextp, va, pa, sz, prot);
 #endif
 	} else {
-		next_phys = PFN_PHYS(_pgd_pfn(pgdp[pgd_index]));
-		nextp = get_pgd_next_virt(next_phys);
-	}
+#ifndef __PAGETABLE_PMD_FOLDED
+		if (pgtable_l4_enabled) {
+			pud_t *nextp;
 
-	create_pgd_next_mapping(nextp, va, pa, sz, prot);
+			next_phys = PFN_PHYS(_pgd_pfn(pgdp[pgd_index]));
+			nextp = get_pud_virt(next_phys);
+
+			create_pud_mapping(nextp, va, pa, sz, prot);
+		} else {
+			pmd_t *nextp;
+
+			next_phys = PFN_PHYS(_pgd_pfn(pgdp[pgd_index]));
+			nextp = get_pmd_virt(next_phys);
+
+			create_pmd_mapping(nextp, va, pa, sz, prot);
+		}
+#else
+		pte_t *nextp;
+
+		next_phys = PFN_PHYS(_pgd_pfn(pgdp[pgd_index]));
+		nextp = get_pte_virt(next_phys);
+
+		create_pte_mapping(nextp, va, pa, sz, prot);
+#endif
+	}
 }
 
 static uintptr_t __init best_map_size(phys_addr_t base, phys_addr_t size)
@@ -412,7 +438,6 @@ static uintptr_t __init best_map_size(phys_addr_t base, phys_addr_t size)
 	"not use absolute addressing."
 #endif
 
-// TODO ALEX: setup_vm should prepare both early_pg_dir 4level and 3level page tables.
 asmlinkage void __init setup_vm(uintptr_t dtb_pa)
 {
 	uintptr_t va, end_va;
@@ -449,9 +474,9 @@ asmlinkage void __init setup_vm(uintptr_t dtb_pa)
 	create_pgd_mapping(trampoline_pg_dir, PAGE_OFFSET,
 			   (uintptr_t)trampoline_pud, PGDIR_SIZE, PAGE_TABLE);
 	create_pud_mapping(trampoline_pud, PAGE_OFFSET,
-			   (uintptr_t)trampoline_pmd, PUD_SIZE, PAGE_TABLE);
-	create_pmd_mapping(trampoline_pmd, PAGE_OFFSET,
-			   load_pa, PMD_SIZE, PAGE_KERNEL_EXEC);
+//			   (uintptr_t)trampoline_pmd, PUD_SIZE, PAGE_TABLE);
+//	create_pmd_mapping(trampoline_pmd, PAGE_OFFSET,
+			   load_pa, PUD_SIZE, PAGE_KERNEL_EXEC);
 #else
 	/* Setup trampoline PGD */
 	create_pgd_mapping(trampoline_pg_dir, PAGE_OFFSET,
@@ -486,9 +511,18 @@ asmlinkage void __init setup_vm(uintptr_t dtb_pa)
  * into pgd. Note that trampoline_pg_dir does not need the same treatment as
  * in 4-level it uses a 2MB page which becomes a 4KB page in 3-level.
  */
-static void __init setup_vm_fold_pud(void)
+asmlinkage void __init setup_vm_fold_pud(void)
 {
+	/* Here we have to make pgd entry point to pmd page:
+	 * *pgd_offset(mm, address) = pud_offset(*pgd_offset(mm, address))
+	 */
+	pgd_t *pgd_entry = early_pg_dir + pgd_index(PAGE_OFFSET);
+	p4d_t *p4d_entry = p4d_offset((pgd_t *)pgd_val(*pgd_entry), PAGE_OFFSET);
+	pud_t *pud_entry = pud_offset((p4d_t *)p4d_val(*p4d_entry), PAGE_OFFSET);
 
+	*pgd_entry = *((pgd_t *)pud_entry);
+
+	pgtable_l4_enabled = false;
 }
 
 static void __init setup_vm_final(void)
