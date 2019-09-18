@@ -10,8 +10,8 @@
 
 extern bool pgtable_l4_enabled;
 
-/* (pgtable_l4_enabled ? 39: 30) */
-#define PGDIR_SHIFT      39
+/* */
+#define PGDIR_SHIFT     (pgtable_l4_enabled ? 39: 30)
 /* Size of region mapped by a page global directory */
 #define PGDIR_SIZE      (_AC(1, UL) << PGDIR_SHIFT)
 #define PGDIR_MASK      (~(PGDIR_SIZE - 1))

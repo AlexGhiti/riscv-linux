@@ -142,6 +142,7 @@ relocate:
 	srl a3, a3, PAGE_SHIFT
 	li a1, SATP_MODE_39
 	or a3, a3, a1
+	sfence.vma
 	csrw CSR_SATP, a3	
 .align 2
 1:

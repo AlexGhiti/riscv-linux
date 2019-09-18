@@ -474,9 +474,9 @@ asmlinkage void __init setup_vm(uintptr_t dtb_pa)
 	create_pgd_mapping(trampoline_pg_dir, PAGE_OFFSET,
 			   (uintptr_t)trampoline_pud, PGDIR_SIZE, PAGE_TABLE);
 	create_pud_mapping(trampoline_pud, PAGE_OFFSET,
-//			   (uintptr_t)trampoline_pmd, PUD_SIZE, PAGE_TABLE);
-//	create_pmd_mapping(trampoline_pmd, PAGE_OFFSET,
-			   load_pa, PUD_SIZE, PAGE_KERNEL_EXEC);
+			   (uintptr_t)trampoline_pmd, PUD_SIZE, PAGE_TABLE);
+	create_pmd_mapping(trampoline_pmd, PAGE_OFFSET,
+			   load_pa, PMD_SIZE, PAGE_KERNEL_EXEC);
 #else
 	/* Setup trampoline PGD */
 	create_pgd_mapping(trampoline_pg_dir, PAGE_OFFSET,
@@ -508,21 +508,28 @@ asmlinkage void __init setup_vm(uintptr_t dtb_pa)
 /*
  * This function is called only if the current kernel is 64bit and the HW
  * does not support sv48: then we have to fold the pud level of early_pg_dir
- * into pgd. Note that trampoline_pg_dir does not need the same treatment as
- * in 4-level it uses a 2MB page which becomes a 4KB page in 3-level.
+ * into pgd.
  */
 asmlinkage void __init setup_vm_fold_pud(void)
 {
 	/* Here we have to make pgd entry point to pmd page:
 	 * *pgd_offset(mm, address) = pud_offset(*pgd_offset(mm, address))
 	 */
-	pgd_t *pgd_entry = early_pg_dir + pgd_index(PAGE_OFFSET);
-	p4d_t *p4d_entry = p4d_offset((pgd_t *)pgd_val(*pgd_entry), PAGE_OFFSET);
-	pud_t *pud_entry = pud_offset((p4d_t *)p4d_val(*p4d_entry), PAGE_OFFSET);
-
-	*pgd_entry = *((pgd_t *)pud_entry);
+	pgd_t *pgd_entry;
+	p4d_t *p4d_entry;
+	pud_t *pud_entry;
 
 	pgtable_l4_enabled = false;
+
+	*pgd_entry = early_pg_dir + pgd_index(PAGE_OFFSET);
+	*p4d_entry = p4d_offset((pgd_t *)pgd_val(*pgd_entry), PAGE_OFFSET);
+	*pud_entry = pud_offset((p4d_t *)p4d_val(*p4d_entry), PAGE_OFFSET);
+	*pgd_entry = *((pgd_t *)pud_entry);
+
+	*pgd_entry = trampoline_pg_dir + pgd_index(PAGE_OFFSET);
+        *p4d_entry = p4d_offset((pgd_t *)pgd_val(*pgd_entry), PAGE_OFFSET);
+        *pud_entry = pud_offset((p4d_t *)p4d_val(*p4d_entry), PAGE_OFFSET);
+	*pgd_entry = *((pgd_t *)pud_entry);
 }
 
 static void __init setup_vm_final(void)
