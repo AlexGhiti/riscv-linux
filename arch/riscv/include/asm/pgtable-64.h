@@ -9,14 +9,16 @@
 #include <linux/const.h>
 
 extern bool pgtable_l4_enabled;
+extern unsigned int pgdir_shift;
 
 /* */
-#define PGDIR_SHIFT     (pgtable_l4_enabled ? 39: 30)
+#define PGDIR_SHIFT     pgdir_shift
+//(39)
 /* Size of region mapped by a page global directory */
 #define PGDIR_SIZE      (_AC(1, UL) << PGDIR_SHIFT)
 #define PGDIR_MASK      (~(PGDIR_SIZE - 1))
 
-/* pud is folded into pgd in case of 3-level page table */
+/* pgd is folded into pud in case of 3-level page table */
 #define PUD_SHIFT	30
 #define PUD_SIZE	(_AC(1, UL) << PUD_SHIFT)
 #define PUD_MASK	(~(PUD_SIZE - 1))

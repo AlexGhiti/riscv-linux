@@ -19,6 +19,9 @@
 #include <asm/io.h>
 
 bool pgtable_l4_enabled = true;
+EXPORT_SYMBOL(pgtable_l4_enabled);
+unsigned int pgdir_shift = 39;
+EXPORT_SYMBOL(pgdir_shift);
 
 unsigned long empty_zero_page[PAGE_SIZE / sizeof(unsigned long)]
 							__page_aligned_bss;
@@ -148,6 +151,7 @@ static bool mmu_enabled;
 #define MAX_EARLY_MAPPING_SIZE	SZ_128M
 
 pgd_t early_pg_dir[PTRS_PER_PGD] __initdata __aligned(PAGE_SIZE);
+pgd_t *early = &early_pg_dir[0];
 
 void __set_fixmap(enum fixed_addresses idx, phys_addr_t phys, pgprot_t prot)
 {
@@ -206,13 +210,13 @@ pmd_t trampoline_pmd[PTRS_PER_PMD] __page_aligned_bss;
 pud_t fixmap_pud[PTRS_PER_PUD] __page_aligned_bss;
 pmd_t fixmap_pmd[PTRS_PER_PMD] __page_aligned_bss;
 
-#if MAX_EARLY_MAPPING_SIZE < PGDIR_SIZE
+//#if MAX_EARLY_MAPPING_SIZE < PGDIR_SIZE
 #define NUM_EARLY_PMDS		1UL
 #define NUM_EARLY_PUDS		1UL	// TODO ALEX check all of that
-#else
-#define NUM_EARLY_PMDS		(1UL + MAX_EARLY_MAPPING_SIZE / PGDIR_SIZE)
-#define NUM_EARLY_PUDS		(1UL + MAX_EARLY_MAPPING_SIZE / PGDIR_SIZE)
-#endif
+//#else
+//#define NUM_EARLY_PMDS		(1UL + MAX_EARLY_MAPPING_SIZE / PGDIR_SIZE)
+//#define NUM_EARLY_PUDS		(1UL + MAX_EARLY_MAPPING_SIZE / PGDIR_SIZE)
+//#endif
 // TODO ALEX
 //pmd_t early_pmd[NUM_EARLY_PMDS][PTRS_PER_PMD] __initdata __aligned(PAGE_SIZE);
 pmd_t early_pmd[PTRS_PER_PMD * NUM_EARLY_PMDS] __initdata __aligned(PAGE_SIZE);
@@ -438,6 +442,8 @@ static uintptr_t __init best_map_size(phys_addr_t base, phys_addr_t size)
 	"not use absolute addressing."
 #endif
 
+
+
 asmlinkage void __init setup_vm(uintptr_t dtb_pa)
 {
 	uintptr_t va, end_va;
@@ -455,12 +461,12 @@ asmlinkage void __init setup_vm(uintptr_t dtb_pa)
 	BUG_ON(map_size == PAGE_SIZE);
 
 	/* Sanity check alignment and size */
-	BUG_ON((PAGE_OFFSET % PGDIR_SIZE) != 0);
+	//BUG_ON((PAGE_OFFSET % PGDIR_SIZE) != 0);
 	BUG_ON((load_pa % map_size) != 0);
 	BUG_ON(load_sz > MAX_EARLY_MAPPING_SIZE);
 
 	/* Setup early PGD for fixmap */
-	create_pgd_mapping(early_pg_dir, FIXADDR_START,
+	create_pgd_mapping(early, FIXADDR_START,
 			   (uintptr_t)fixmap_pud, PGDIR_SIZE, PAGE_TABLE);
 
 #ifndef __PAGETABLE_PMD_FOLDED
@@ -490,7 +496,7 @@ asmlinkage void __init setup_vm(uintptr_t dtb_pa)
 	 */
 	end_va = PAGE_OFFSET + load_sz;
 	for (va = PAGE_OFFSET; va < end_va; va += map_size)
-		create_pgd_mapping(early_pg_dir, va,
+		create_pgd_mapping(early, va,
 				   load_pa + (va - PAGE_OFFSET),
 				   map_size, PAGE_KERNEL_EXEC);
 
@@ -507,29 +513,12 @@ asmlinkage void __init setup_vm(uintptr_t dtb_pa)
 
 /*
  * This function is called only if the current kernel is 64bit and the HW
- * does not support sv48: then we have to fold the pud level of early_pg_dir
- * into pgd.
+ * does not support sv48.
  */
-asmlinkage void __init setup_vm_fold_pud(void)
+asmlinkage __init void setup_vm_fold_pgd(void)
 {
-	/* Here we have to make pgd entry point to pmd page:
-	 * *pgd_offset(mm, address) = pud_offset(*pgd_offset(mm, address))
-	 */
-	pgd_t *pgd_entry;
-	p4d_t *p4d_entry;
-	pud_t *pud_entry;
-
 	pgtable_l4_enabled = false;
-
-	*pgd_entry = early_pg_dir + pgd_index(PAGE_OFFSET);
-	*p4d_entry = p4d_offset((pgd_t *)pgd_val(*pgd_entry), PAGE_OFFSET);
-	*pud_entry = pud_offset((p4d_t *)p4d_val(*p4d_entry), PAGE_OFFSET);
-	*pgd_entry = *((pgd_t *)pud_entry);
-
-	*pgd_entry = trampoline_pg_dir + pgd_index(PAGE_OFFSET);
-        *p4d_entry = p4d_offset((pgd_t *)pgd_val(*pgd_entry), PAGE_OFFSET);
-        *pud_entry = pud_offset((p4d_t *)p4d_val(*p4d_entry), PAGE_OFFSET);
-	*pgd_entry = *((pgd_t *)pud_entry);
+	pgdir_shift = 30;
 }
 
 static void __init setup_vm_final(void)
