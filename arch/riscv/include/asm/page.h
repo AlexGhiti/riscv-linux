@@ -90,6 +90,7 @@ typedef struct page *pgtable_t;
 
 extern unsigned long va_pa_offset;
 extern unsigned long pfn_base;
+extern unsigned long kernel_load_addr;
 
 extern unsigned long max_low_pfn;
 extern unsigned long min_low_pfn;
@@ -116,6 +117,13 @@ extern unsigned long min_low_pfn;
 #endif
 
 #define ARCH_PFN_OFFSET		(pfn_base)
+
+/*
+ * Define MIN_MEMBLOCK_ADDR using kernel_load_addr otherwise, by using
+ * PAGE_OFFSET, we would use physical memory below pfn_base and then
+ * in FLATMEM, pfn_to_page would return an address below memmap.
+ */
+#define MIN_MEMBLOCK_ADDR	(__pa(kernel_load_addr))
 
 #endif /* __ASSEMBLY__ */
 
