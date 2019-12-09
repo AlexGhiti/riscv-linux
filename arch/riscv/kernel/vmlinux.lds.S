@@ -4,7 +4,7 @@
  * Copyright (C) 2017 SiFive
  */
 
-#define LOAD_OFFSET PAGE_OFFSET
+#define LOAD_OFFSET CONFIG_PAGE_OFFSET
 #include <asm/vmlinux.lds.h>
 #include <asm/page.h>
 #include <asm/cache.h>
@@ -70,9 +70,11 @@ SECTIONS
 
 	EXCEPTION_TABLE(0x10)
 
-	.rel.dyn : {
-		*(.rel.dyn*)
-	}
+        .rela.dyn : ALIGN(8) {
+		__rela_dyn_start = .;
+                *(.rela .rela*)
+		__rela_dyn_end = .;
+        }
 
 	_end = .;
 

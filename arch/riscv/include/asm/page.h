@@ -31,9 +31,9 @@
  * When not using MMU this corresponds to the first free page in
  * physical memory (aligned on a page boundary).
  */
-#define PAGE_OFFSET		_AC(CONFIG_PAGE_OFFSET, UL)
+#define PAGE_OFFSET		kernel_load_addr
 
-#define KERN_VIRT_SIZE (-PAGE_OFFSET)
+#define KERN_VIRT_SIZE		(-_AC(CONFIG_PAGE_OFFSET, UL))
 
 #ifndef __ASSEMBLY__
 
@@ -97,6 +97,7 @@ extern unsigned long pfn_base;
 #define ARCH_PFN_OFFSET		(PAGE_OFFSET >> PAGE_SHIFT)
 #endif /* CONFIG_MMU */
 
+extern unsigned long kernel_load_addr;
 extern unsigned long max_low_pfn;
 extern unsigned long min_low_pfn;
 
