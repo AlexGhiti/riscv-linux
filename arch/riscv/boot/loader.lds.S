@@ -7,7 +7,7 @@ ENTRY(_start)
 
 SECTIONS
 {
-	. = PAGE_OFFSET;
+	. = CONFIG_PAGE_OFFSET;
 
 	.payload : {
 		*(.payload)
