@@ -71,9 +71,11 @@ SECTIONS
 	EXCEPTION_TABLE(0x10)
 	NOTES
 
-	.rel.dyn : {
-		*(.rel.dyn*)
-	}
+        .rela.dyn : ALIGN(8) {
+		__rela_dyn_start = .;
+                *(.rela .rela*)
+		__rela_dyn_end = .;
+        }
 
 	_end = .;
 

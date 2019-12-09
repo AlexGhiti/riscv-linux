@@ -61,6 +61,7 @@ config RISCV
 	select SPARSEMEM_STATIC if 32BIT
 	select ARCH_WANT_DEFAULT_TOPDOWN_MMAP_LAYOUT if MMU
 	select HAVE_ARCH_MMAP_RND_BITS
+	select RELOCATABLE
 
 config ARCH_MMAP_RND_BITS_MIN
 	default 18 if 64BIT
@@ -141,6 +142,18 @@ config PGTABLE_LEVELS
 	int
 	default 3 if 64BIT
 	default 2
+
+config RELOCATABLE
+	bool
+	depends on 64BIT && CMODEL_MEDANY
+	help
+	  This builds a kernel as a Position Independent Executable (PIE),
+          which retains all relocation metadata required to relocate the
+          kernel binary at runtime to a different virtual address than the
+          address it was linked at.
+          Since RISCV uses the RELA relocation format, this requires a
+          relocation pass at runtime even if the kernel is loaded at the
+          same address it was linked at.
 
 source "arch/riscv/Kconfig.socs"
 
