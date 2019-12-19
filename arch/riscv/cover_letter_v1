@@ -1,0 +1,5 @@
+Open questions are:
+
+- PMD granularity ?
+- only code+data are relocatable, what about below PAGE_OFFSET ? Maybe that's
+  KASLR role to do that. Because of course relocatable can relocate only symbols...
