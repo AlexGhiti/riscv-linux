@@ -35,7 +35,7 @@ EXPORT_SYMBOL(empty_zero_page);
 
 extern char _start[];
 
-unsigned long kernel_load_addr = PAGE_OFFSET;
+unsigned long kernel_load_addr = PAGE_OFFSET_L4;
 EXPORT_SYMBOL(kernel_load_addr);
 
 static void __init zone_sizes_init(void)
@@ -167,7 +167,6 @@ static bool mmu_enabled;
 #define MAX_EARLY_MAPPING_SIZE	SZ_128M
 
 pgd_t early_pg_dir[PTRS_PER_PGD] __initdata __aligned(PAGE_SIZE);
-pgd_t *early = &early_pg_dir[0];
 
 void __set_fixmap(enum fixed_addresses idx, phys_addr_t phys, pgprot_t prot)
 {
@@ -373,6 +372,9 @@ static void __init create_pgd_mapping(pgd_t *pgdp,
 		if (pgtable_l4_enabled) {
 			pud_t *nextp;
 
+			// TODO ALEX: Those functions alloc_pud/pmd..etc could/should
+			// memset and return nextp, that would make this way smaller
+			// and prettier.
 			next_phys = alloc_pud(va);
 			pgdp[pgd_index] = pfn_pgd(PFN_DOWN(next_phys), PAGE_TABLE);
 			nextp = get_pud_virt(next_phys);
@@ -474,6 +476,7 @@ void __init relocate_kernel(uintptr_t load_pa)
 	/* This holds the offset between the linked virtual address (ie
 	 * PAGE_OFFSET) and the relocated virtual address.
 	 */
+	//TODO ALEX PAGE_OFFSET == kernel_load_addr...
 	uintptr_t reloc_offset = kernel_load_addr - PAGE_OFFSET;
 	/* This holds the offset between linked virtual address and physical
 	 * address whereas va_pa_offset holds the offset between relocated
@@ -512,7 +515,7 @@ asmlinkage void __init setup_vm(uintptr_t dtb_pa)
 	uintptr_t load_sz = (uintptr_t)(&_end) - load_pa;
 	uintptr_t map_size = best_map_size(load_pa, MAX_EARLY_MAPPING_SIZE);
 
-	kernel_load_addr += SZ_2M;
+	//kernel_load_addr += SZ_2M;
 	va_pa_offset = kernel_load_addr - load_pa;
 	pfn_base = PFN_DOWN(load_pa);
 
@@ -532,7 +535,7 @@ asmlinkage void __init setup_vm(uintptr_t dtb_pa)
 	BUG_ON(load_sz > MAX_EARLY_MAPPING_SIZE);
 
 	/* Setup early PGD for fixmap */
-	create_pgd_mapping(early, FIXADDR_START,
+	create_pgd_mapping(early_pg_dir, FIXADDR_START,
 			   (uintptr_t)fixmap_pud, PGDIR_SIZE, PAGE_TABLE);
 
 #ifndef __PAGETABLE_PMD_FOLDED
@@ -587,6 +590,9 @@ asmlinkage __init void setup_vm_fold_pgd(void)
 {
 	pgtable_l4_enabled = false;
 	pgdir_shift = 30;
+	kernel_load_addr = PAGE_OFFSET_L3;
+
+	// TODO ALEX: Here recompute pgd level with new kernel_load_addr.
 }
 
 static void __init setup_vm_final(void)

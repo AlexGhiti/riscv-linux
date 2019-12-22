@@ -95,6 +95,7 @@ clear_bss_done:
 	mv a0, s1
 	call setup_vm
 	la a0, early_pg_dir
+	li a1, SATP_MODE_48
 	call relocate
 
 	/* Restore C environment */
@@ -107,23 +108,25 @@ clear_bss_done:
 	tail start_kernel
 
 relocate:
-	/* Relocate return address */
-	la a1, kernel_load_addr
-	ld a1, 0(a1)
+	/*
+	 * Relocate return address but save it in case 4-level page table is
+	 * not supported.
+	 */
+	mv s1, ra
+	la a3, kernel_load_addr 
+	ld a3, 0(a3)
 	la a2, _start
-	sub a1, a1, a2
-	add ra, ra, a1
+	sub a3, a3, a2
+	add ra, ra, a3
 
 	/* Point stvec to virtual address of intruction after satp write */
-	# TODO ALEX Actually point stvec to 4level early_pg_dir here
 	la a2, 1f
-	add a2, a2, a1
+	add a2, a2, a3
 	csrw CSR_STVEC, a2 
 
 	/* 1/ First try with a 4-level page table */
 	/* Compute satp for kernel page tables, but don't load it yet */
 	srl a2, a0, PAGE_SHIFT
-	li a1, SATP_MODE_48
 	or a2, a2, a1
 
 	/*
@@ -132,33 +135,26 @@ relocate:
 	 * full fence here because setup_vm() just wrote these PTEs and we need
 	 * to ensure the new translations are in use.
 	 */
-
-	la a3, trampoline_pg_dir
-	srl a3, a3, PAGE_SHIFT
-	or a3, a3, a1
+	la a0, trampoline_pg_dir
+	srl a0, a0, PAGE_SHIFT
+	or a0, a0, a1
 	sfence.vma
-	csrw CSR_SATP, a3
+	csrw CSR_SATP, a0
 
 	/*
 	 * If we fall through here, that means the HW does not support SV48.
-	 * We need a 3-level page table then simply fold pgd into pud level.
+	 * We need a 3-level page table then simply fold pgd into pud level
+	 * and finally jump back to relocate with 3-level parameters.
 	 */
-	// This crashes relocated $ra !
-	#call setup_vm_fold_pgd
+	mv s2,a2
+	call setup_vm_fold_pgd
+	mv a2,s2
 
-	/* Compute satp for kernel page tables, but don't load it yet */
 	la a0, early_pg_dir
-	srl a2, a0, PAGE_SHIFT
 	li a1, SATP_MODE_39
-	or a2, a2, a1
+	mv ra, s1
+	tail relocate
 
-	/* Load trampoline pud in place of trampoline page directory */
-	la a3, trampoline_pud
-	srl a3, a3, PAGE_SHIFT
-	li a1, SATP_MODE_39
-	or a3, a3, a1
-	sfence.vma
-	csrw CSR_SATP, a3
 .align 2
 1:
 	/* Set trap vector to spin forever to help debug */

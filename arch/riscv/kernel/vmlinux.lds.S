@@ -4,8 +4,11 @@
  * Copyright (C) 2017 SiFive
  */
 
-#define LOAD_OFFSET 0xffffffe000000000
-//#define LOAD_OFFSET PAGE_OFFSET
+#ifdef CONFIG_64BIT
+#define LOAD_OFFSET PAGE_OFFSET_L4 
+#else
+#define LOAD_OFFSET PAGE_OFFSET
+#endif
 #include <asm/vmlinux.lds.h>
 #include <asm/page.h>
 #include <asm/cache.h>
