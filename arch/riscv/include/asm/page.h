@@ -32,7 +32,7 @@
  * define the PAGE_OFFSET value for SV39: this value splits the 39bit address
  * space in half (256GB for kernel, the same for userspace).
  */
-#define PAGE_OFFSET_L3		0xffffffc000000000
+#define PAGE_OFFSET_L3		0xffffffe000000000
 #define PAGE_OFFSET_L4		_AC(CONFIG_PAGE_OFFSET, UL)
 /*
  * PAGE_OFFSET -- the first address of the first page of memory.

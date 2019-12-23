@@ -316,7 +316,8 @@ static void __init create_pmd_mapping(pmd_t *pmdp,
 		create_pud_mapping(__nextp, __va, __pa, __sz, __prot):	\
 		create_pmd_mapping(__nextp, __va, __pa, __sz, __prot)
 #define PTE_PARENT_SIZE		PMD_SIZE
-#define fixmap_pgd_next		fixmap_pud
+#define fixmap_pgd_next		(pgtable_l4_enabled ?			\
+		(unsigned long)fixmap_pud: (unsigned long)fixmap_pmd)
 #else
 #define pgd_next_t		pte_t
 #define alloc_pgd_next(__va)	alloc_pte(__va)
@@ -476,13 +477,12 @@ void __init relocate_kernel(uintptr_t load_pa)
 	/* This holds the offset between the linked virtual address (ie
 	 * PAGE_OFFSET) and the relocated virtual address.
 	 */
-	//TODO ALEX PAGE_OFFSET == kernel_load_addr...
-	uintptr_t reloc_offset = kernel_load_addr - PAGE_OFFSET;
+	uintptr_t reloc_offset = kernel_load_addr - PAGE_OFFSET_L4;
 	/* This holds the offset between linked virtual address and physical
 	 * address whereas va_pa_offset holds the offset between relocated
 	 * virtual address and physical address.
 	 */
-	uintptr_t va_link_pa_offset = PAGE_OFFSET - load_pa;
+	uintptr_t va_link_pa_offset = PAGE_OFFSET_L4 - load_pa;
 
 	while (rela < (Elf_Rela *)&__rela_dyn_end) {
 		Elf_Addr addr = (rela->r_offset - va_link_pa_offset);
@@ -496,7 +496,7 @@ void __init relocate_kernel(uintptr_t load_pa)
 		 * vdso symbol addresses are actually used as an offset from
 		 * mm->context.vdso in VDSO_OFFSET macro.
 		 */
-		if (rela->r_addend >= PAGE_OFFSET)
+		if (rela->r_addend >= PAGE_OFFSET_L4)
 			relocated_addr += reloc_offset;
 
 		*(Elf_Addr *)addr = relocated_addr;
@@ -536,19 +536,23 @@ asmlinkage void __init setup_vm(uintptr_t dtb_pa)
 
 	/* Setup early PGD for fixmap */
 	create_pgd_mapping(early_pg_dir, FIXADDR_START,
-			   (uintptr_t)fixmap_pud, PGDIR_SIZE, PAGE_TABLE);
+			pgtable_l4_enabled ? (uintptr_t)fixmap_pud: (uintptr_t)fixmap_pmd,
+			PGDIR_SIZE, PAGE_TABLE);
 
 #ifndef __PAGETABLE_PMD_FOLDED
 	/* Setup fixmap PUD and PMD */
-	create_pud_mapping(fixmap_pud, FIXADDR_START,
+	if (pgtable_l4_enabled)
+		create_pud_mapping(fixmap_pud, FIXADDR_START,
 			   (uintptr_t)fixmap_pmd, PUD_SIZE, PAGE_TABLE);
 	create_pmd_mapping(fixmap_pmd, FIXADDR_START,
 			   (uintptr_t)fixmap_pte, PMD_SIZE, PAGE_TABLE);
 
 	/* Setup trampoline PGD and PMD */
 	create_pgd_mapping(trampoline_pg_dir, kernel_load_addr,
-			   (uintptr_t)trampoline_pud, PGDIR_SIZE, PAGE_TABLE);
-	create_pud_mapping(trampoline_pud, kernel_load_addr,
+			pgtable_l4_enabled ? (uintptr_t)trampoline_pud: (uintptr_t)trampoline_pmd,
+			PGDIR_SIZE, PAGE_TABLE);
+	if (pgtable_l4_enabled)
+		create_pud_mapping(trampoline_pud, kernel_load_addr,
 			   (uintptr_t)trampoline_pmd, PUD_SIZE, PAGE_TABLE);
 	create_pmd_mapping(trampoline_pmd, kernel_load_addr,
 			   load_pa, PMD_SIZE, PAGE_KERNEL_EXEC);
@@ -592,7 +596,16 @@ asmlinkage __init void setup_vm_fold_pgd(void)
 	pgdir_shift = 30;
 	kernel_load_addr = PAGE_OFFSET_L3;
 
-	// TODO ALEX: Here recompute pgd level with new kernel_load_addr.
+	memset(fixmap_pte, 0, sizeof(pte_t) * PTRS_PER_PTE);
+	memset(fixmap_pmd, 0, sizeof(pmd_t) * PTRS_PER_PMD);
+
+	memset(trampoline_pmd, 0, sizeof(pmd_t) * PTRS_PER_PMD);
+	memset(trampoline_pg_dir, 0, sizeof(pgd_t) * PTRS_PER_PGD);
+
+	memset(early_pmd, 0, sizeof(pmd_t) * PTRS_PER_PMD);
+	memset(early_pg_dir, 0, sizeof(pgd_t) * PTRS_PER_PGD);
+
+	setup_vm(dtb_early_pa);
 }
 
 static void __init setup_vm_final(void)
