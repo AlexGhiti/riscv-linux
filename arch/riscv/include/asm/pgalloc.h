@@ -53,13 +53,16 @@ static inline void p4d_populate_safe(struct mm_struct *mm, p4d_t *p4d, pud_t *pu
 
 static inline pud_t *pud_alloc_one(struct mm_struct *mm, unsigned long addr)
 {
-        return (pud_t *)__get_free_page(
+	if (pgtable_l4_enabled)
+	        return (pud_t *)__get_free_page(
                         GFP_KERNEL | __GFP_RETRY_MAYFAIL | __GFP_ZERO);
+	return NULL;
 }
 
 static inline void pud_free(struct mm_struct *mm, pud_t *pud)
 {
-        free_page((unsigned long)pud);
+	if (pgtable_l4_enabled)
+	        free_page((unsigned long)pud);
 }
 
 #define __pud_free_tlb(tlb, pud, addr)  pud_free((tlb)->mm, pud)

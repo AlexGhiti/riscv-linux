@@ -11,9 +11,7 @@
 extern bool pgtable_l4_enabled;
 extern unsigned int pgdir_shift;
 
-/* */
 #define PGDIR_SHIFT     pgdir_shift
-//(39)
 /* Size of region mapped by a page global directory */
 #define PGDIR_SIZE      (_AC(1, UL) << PGDIR_SHIFT)
 #define PGDIR_MASK      (~(PGDIR_SIZE - 1))
@@ -48,41 +46,67 @@ typedef struct {
 
 #define pud_ERROR(pud)                          (pr_err("coucou"))
 
+static inline void set_pud(pud_t *pudp, pud_t pud)
+{
+	*pudp = pud;
+}
+
 static inline void set_p4d(p4d_t *p4dp, p4d_t p4d)
 {
-	*p4dp = p4d;
+	if (pgtable_l4_enabled)
+		*p4dp = p4d;
+	else
+		set_pud((pud_t *)p4dp, (pud_t){ p4d_val(p4d) });
 }
 
 static inline int p4d_none(p4d_t p4d)
 {
-	return (p4d_val(p4d) == 0);
+	if (pgtable_l4_enabled)
+		return (p4d_val(p4d) == 0);
+	return 0;
 }
 
 static inline int p4d_present(p4d_t p4d)
 {
-	return (p4d_val(p4d) & _PAGE_PRESENT);
+	if (pgtable_l4_enabled)
+		return (p4d_val(p4d) & _PAGE_PRESENT);
+	return 1;
 }
 
 static inline int p4d_bad(p4d_t p4d)
 {
-	return !p4d_present(p4d);
+	if (pgtable_l4_enabled)
+		return !p4d_present(p4d);
+	return 0;
 }
 
 static inline void p4d_clear(p4d_t *p4d)
 {
-	return set_p4d(p4d, __p4d(0));
+	if (pgtable_l4_enabled)
+		set_p4d(p4d, __p4d(0));
+}
+
+static inline unsigned long pud_page_vaddr(pud_t pud)
+{
+	return (unsigned long)pfn_to_virt(pud_val(pud) >> _PAGE_PFN_SHIFT);
 }
 
 static inline unsigned long p4d_page_vaddr(p4d_t p4d)
 {
-	return (unsigned long)pfn_to_virt(p4d_val(p4d) >> _PAGE_PFN_SHIFT);
+	if (pgtable_l4_enabled)
+		return (unsigned long)pfn_to_virt(p4d_val(p4d) >> _PAGE_PFN_SHIFT);
+
+	return pud_page_vaddr((pud_t) { p4d_val(p4d) });
 }
 
 #define pud_index(addr) (((addr) >> PUD_SHIFT) & (PTRS_PER_PUD - 1))
 
 static inline pud_t *pud_offset(p4d_t *p4d, unsigned long address)
 {
-	return (pud_t *)p4d_page_vaddr(*p4d) + pud_index(address);
+	if (pgtable_l4_enabled)
+		return (pud_t *)p4d_page_vaddr(*p4d) + pud_index(address);
+
+	return (pud_t *)p4d;
 }
 
 static inline int pud_present(pud_t pud)
@@ -100,11 +124,6 @@ static inline int pud_bad(pud_t pud)
 	return !pud_present(pud);
 }
 
-static inline void set_pud(pud_t *pudp, pud_t pud)
-{
-	*pudp = pud;
-}
-
 static inline void pud_clear(pud_t *pudp)
 {
 	set_pud(pudp, __pud(0));
@@ -118,11 +137,6 @@ static inline pud_t pfn_pud(unsigned long pfn, pgprot_t prot)
 static inline unsigned long _pud_pfn(pud_t pud)
 {
 	return pud_val(pud) >> _PAGE_PFN_SHIFT;
-}
-
-static inline unsigned long pud_page_vaddr(pud_t pud)
-{
-	return (unsigned long)pfn_to_virt(pud_val(pud) >> _PAGE_PFN_SHIFT);
 }
 
 #define pmd_index(addr) (((addr) >> PMD_SHIFT) & (PTRS_PER_PMD - 1))
