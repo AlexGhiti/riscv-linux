@@ -139,6 +139,15 @@ static inline unsigned long _pud_pfn(pud_t pud)
 	return pud_val(pud) >> _PAGE_PFN_SHIFT;
 }
 
+#define mm_pud_folded	mm_pud_folded
+static inline bool mm_pud_folded(struct mm_struct *mm)
+{
+	if (pgtable_l4_enabled)
+		return false;
+
+	return true;
+}
+
 #define pmd_index(addr) (((addr) >> PMD_SHIFT) & (PTRS_PER_PMD - 1))
 
 static inline pmd_t *pmd_offset(pud_t *pud, unsigned long addr)
