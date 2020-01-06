@@ -43,7 +43,8 @@ typedef struct {
 #define PTRS_PER_PMD    (PAGE_SIZE / sizeof(pmd_t))
 #define PTRS_PER_PUD    (PAGE_SIZE / sizeof(pud_t))
 
-#define pud_ERROR(pud)                          (pr_err("coucou"))
+#define pud_ERROR(e)	\
+	pr_err("%s:%d: bad pud %016lx.\n", __FILE__, __LINE__, pud_val(e))
 
 static inline void set_pud(pud_t *pudp, pud_t pud)
 {

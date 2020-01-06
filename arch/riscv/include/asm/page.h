@@ -27,11 +27,7 @@
 #define HUGETLB_PAGE_ORDER      (HPAGE_SHIFT - PAGE_SHIFT)
 
 #ifdef CONFIG_64BIT
-/*
- * By default, CONFIG_PAGE_OFFSET value corresponds to SV48 address space so
- * define the PAGE_OFFSET value for SV39: this value splits the 39bit address
- * space in half (256GB for kernel, the same for userspace).
- */
+/* CONFIG_PAGE_OFFSET value corresponds to SV48 address space */
 #define PAGE_OFFSET_L3		0xffffffe000000000
 #define PAGE_OFFSET_L4		_AC(CONFIG_PAGE_OFFSET, UL)
 /*

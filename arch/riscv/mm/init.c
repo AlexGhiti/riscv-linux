@@ -162,8 +162,6 @@ pgd_t trampoline_pg_dir[PTRS_PER_PGD] __page_aligned_bss;
 pte_t fixmap_pte[PTRS_PER_PTE] __page_aligned_bss;
 static bool mmu_enabled;
 
-#define MAX_EARLY_MAPPING_SIZE	SZ_128M
-
 pgd_t early_pg_dir[PTRS_PER_PGD] __initdata __aligned(PAGE_SIZE);
 
 void __set_fixmap(enum fixed_addresses idx, phys_addr_t phys, pgprot_t prot)
@@ -222,8 +220,8 @@ pud_t trampoline_pud[PTRS_PER_PUD] __page_aligned_bss;
 pmd_t trampoline_pmd[PTRS_PER_PMD] __page_aligned_bss;
 pud_t fixmap_pud[PTRS_PER_PUD] __page_aligned_bss;
 pmd_t fixmap_pmd[PTRS_PER_PMD] __page_aligned_bss;
-pmd_t early_pmd[PTRS_PER_PMD] __initdata __aligned(PAGE_SIZE);
 pud_t early_pud[PTRS_PER_PUD] __initdata __aligned(PAGE_SIZE);
+pmd_t early_pmd[PTRS_PER_PMD] __initdata __aligned(PAGE_SIZE);
 
 static pmd_t *__init get_pmd_virt(phys_addr_t pa)
 {
@@ -430,24 +428,6 @@ static uintptr_t __init best_map_size(phys_addr_t base, phys_addr_t size)
 	return map_size;
 }
 
-/*
- * setup_vm() is called from head.S with MMU-off.
- *
- * Following requirements should be honoured for setup_vm() to work
- * correctly:
- * 1) It should use PC-relative addressing for accessing kernel symbols.
- *    To achieve this we always use GCC cmodel=medany.
- * 2) The compiler instrumentation for FTRACE will not work for setup_vm()
- *    so disable compiler instrumentation when FTRACE is enabled.
- *
- * Currently, the above requirements are honoured by using custom CFLAGS
- * for init.o in mm/Makefile.
- */
-
-#ifndef __riscv_cmodel_medany
-#error "setup_vm() is called from head.S before relocate so it should not use absolute addressing."
-#endif
-
 #ifdef CONFIG_RELOCATABLE
 extern unsigned long __rela_dyn_start, __rela_dyn_end;
 
@@ -497,12 +477,30 @@ void __init relocate_kernel(uintptr_t load_pa)
 }
 #endif
 
+/*
+ * setup_vm() is called from head.S with MMU-off.
+ *
+ * Following requirements should be honoured for setup_vm() to work
+ * correctly:
+ * 1) It should use PC-relative addressing for accessing kernel symbols.
+ *    To achieve this we always use GCC cmodel=medany.
+ * 2) The compiler instrumentation for FTRACE will not work for setup_vm()
+ *    so disable compiler instrumentation when FTRACE is enabled.
+ *
+ * Currently, the above requirements are honoured by using custom CFLAGS
+ * for init.o in mm/Makefile.
+ */
+
+#ifndef __riscv_cmodel_medany
+#error "setup_vm() is called from head.S before relocate so it should not use absolute addressing."
+#endif
+
 asmlinkage void __init setup_vm(uintptr_t dtb_pa)
 {
 	uintptr_t va, end_va;
 	uintptr_t load_pa = (uintptr_t)(&_start);
 	uintptr_t load_sz = (uintptr_t)(&_end) - load_pa;
-	uintptr_t map_size = best_map_size(load_pa, MAX_EARLY_MAPPING_SIZE);
+	uintptr_t map_size = best_map_size(load_pa, PGDIR_SIZE);
 
 	va_pa_offset = kernel_load_addr - load_pa;
 	pfn_base = PFN_DOWN(load_pa);
@@ -520,7 +518,7 @@ asmlinkage void __init setup_vm(uintptr_t dtb_pa)
 	/* Sanity check alignment and size */
 	BUG_ON((PAGE_OFFSET % PGDIR_SIZE) != 0);
 	BUG_ON((load_pa % map_size) != 0);
-	BUG_ON(load_sz > MAX_EARLY_MAPPING_SIZE);
+	//BUG_ON(load_sz > MAX_EARLY_MAPPING_SIZE);
 
 	/* Setup early PGD for fixmap */
 	create_pgd_mapping(early_pg_dir, FIXADDR_START,

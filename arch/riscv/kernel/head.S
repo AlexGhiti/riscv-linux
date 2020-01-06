@@ -210,11 +210,7 @@ relocate:
 .align 2
 .Lsecondary_park:
 	/* We lack SMP support or have too many harts, so park this hart */
-	//wfi
-	add  a0, a0, a1
-        csrr a2, CSR_SEPC
-        csrr a3, CSR_STVAL
-        csrr a4, CSR_SCAUSE
+	wfi
 	j .Lsecondary_park
 END(_start)
 
