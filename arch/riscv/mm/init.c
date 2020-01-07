@@ -243,15 +243,30 @@ static pud_t *__init get_pud_virt(phys_addr_t pa)
 	}
 }
 
-static phys_addr_t __init alloc_pmd(uintptr_t va)
+/*
+ * The parent of PMD can be either PUD or PGD, depending *at runtime* on the
+ * number of page table levels.
+ */
+static void __init alloc_and_insert_pmd(uintptr_t va, void *pgtable_parent)
 {
-	if (mmu_enabled)
-		return memblock_phys_alloc(PAGE_SIZE, PAGE_SIZE);
+	if (pgtable_l4_enabled) {
+		phys_addr_t next_phys;
+		pud_t *pudp = pgtable_parent;
+		pmd_t *pmdp;
 
-	/* Only one PMD is available for early mapping */
-	BUG_ON((va - kernel_load_addr) >> PUD_SHIFT);
+		if (mmu_enabled)
+			next_phys = memblock_phys_alloc(PAGE_SIZE, PAGE_SIZE);
+		else {
+			/* Only one PMD is available for early mapping */
+			BUG_ON((va - kernel_load_addr) >> PUD_SHIFT);
+			next_phys = early_pmd;
+		}
 
-	return (uintptr_t)early_pmd;
+		pmdp = get_pmd_virt(next_phys);
+		memset(pmdp, 0, PAGE_SIZE);
+
+		*pudp = pfn_pud(PFN_DOWN(next_phys), PAGE_TABLE);
+	}
 }
 
 static phys_addr_t __init alloc_pud(uintptr_t va)
@@ -355,6 +370,9 @@ static void __init create_pgd_mapping(pgd_t *pgdp,
 	}
 
 	if (pgd_val(pgdp[pgd_index]) == 0) {
+		next_phys = alloc_pgd_next(va);
+		pgdp[pgd_index] = pfn_pgd(PFN_DOWN(next_phys), PAGE_TABLE);
+
 #ifndef __PAGETABLE_PMD_FOLDED
 		if (pgtable_l4_enabled) {
 			pud_t *nextp;
@@ -390,6 +408,7 @@ static void __init create_pgd_mapping(pgd_t *pgdp,
 #endif
 	} else {
 #ifndef __PAGETABLE_PMD_FOLDED
+		next_phys = PFN_PHYS(_pgd_pfn(pgdp[pgd_index]));
 		if (pgtable_l4_enabled) {
 			pud_t *nextp;
 
