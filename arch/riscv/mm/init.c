@@ -446,7 +446,7 @@ void __init relocate_kernel(uintptr_t load_pa)
 	 * This holds the offset between the linked virtual address (ie
 	 * PAGE_OFFSET) and the relocated virtual address.
 	 */
-	uintptr_t reloc_offset = kernel_load_addr - PAGE_OFFSET;
+	uintptr_t reloc_offset = kernel_load_addr - PAGE_OFFSET_L4;
 	/*
 	 * This holds the offset between linked virtual address and physical
 	 * address whereas va_pa_offset holds the offset between relocated
