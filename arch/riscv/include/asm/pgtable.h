@@ -13,8 +13,13 @@
 
 #ifndef __ASSEMBLY__
 
-/* Page Upper Directory not used in RISC-V */
+#ifdef CONFIG_MAXPHYSMEM_64TB
+/* p4d not used in RISC-V sv48 */
+#include <asm-generic/pgtable-nop4d.h>
+#else
+/* Page Upper Directory not used in RISC-V sv39 */
 #include <asm-generic/pgtable-nopud.h>
+#endif
 #include <asm/page.h>
 #include <asm/tlbflush.h>
 #include <linux/mm_types.h>
@@ -27,7 +32,11 @@
 
 #ifdef CONFIG_MMU
 #ifdef CONFIG_64BIT
+#ifdef CONFIG_MAXPHYSMEM_64TB
+#define VA_BITS		48
+#else
 #define VA_BITS		39
+#endif
 #define PA_BITS		56
 #else
 #define VA_BITS		32

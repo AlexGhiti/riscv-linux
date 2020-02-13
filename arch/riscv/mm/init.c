@@ -253,6 +253,12 @@ pmd_t trampoline_pmd[PTRS_PER_PMD] __page_aligned_bss;
 pmd_t fixmap_pmd[PTRS_PER_PMD] __page_aligned_bss;
 pmd_t early_pmd[PTRS_PER_PMD] __initdata __aligned(PAGE_SIZE);
 
+#ifdef CONFIG_MAXPHYSMEM_64TB
+pud_t trampoline_pud[PTRS_PER_PUD] __page_aligned_bss;
+pud_t fixmap_pud[PTRS_PER_PUD] __page_aligned_bss;
+pud_t early_pud[PTRS_PER_PUD] __initdata __aligned(PAGE_SIZE);
+#endif
+
 static pmd_t *__init get_pmd_virt(phys_addr_t pa)
 {
 	if (mmu_enabled) {
@@ -268,7 +274,12 @@ static phys_addr_t __init alloc_pmd(uintptr_t va)
 	if (mmu_enabled)
 		return memblock_phys_alloc(PAGE_SIZE, PAGE_SIZE);
 
+	/* Only one PMD is available for early mapping */
+#ifdef CONFIG_MAXPHYSMEM_64TB
+	BUG_ON((va - kernel_load_addr) >> PUD_SHIFT);
+#else
 	BUG_ON((va - kernel_load_addr) >> PGDIR_SHIFT);
+#endif
 
 	return (uintptr_t)early_pmd;
 }
@@ -300,12 +311,71 @@ static void __init create_pmd_mapping(pmd_t *pmdp,
 	create_pte_mapping(ptep, va, pa, sz, prot);
 }
 
+#ifdef CONFIG_MAXPHYSMEM_64TB
+static pud_t *__init get_pud_virt(phys_addr_t pa)
+{
+	if (mmu_enabled) {
+		clear_fixmap(FIX_PUD);
+		return (pud_t *)set_fixmap_offset(FIX_PUD, pa);
+	} else {
+		return (pud_t *)((uintptr_t)pa);
+	}
+}
+
+static phys_addr_t __init alloc_pud(uintptr_t va)
+{
+	if (mmu_enabled)
+		return memblock_phys_alloc(PAGE_SIZE, PAGE_SIZE);
+
+	/* Only one PUD is available for early mapping */
+	BUG_ON((va - kernel_load_addr) >> PGDIR_SHIFT);
+
+	return (uintptr_t)early_pud;
+}
+
+static void __init create_pud_mapping(pud_t *pudp,
+				      uintptr_t va, phys_addr_t pa,
+				      phys_addr_t sz, pgprot_t prot)
+{
+	pmd_t *nextp;
+	phys_addr_t next_phys;
+	uintptr_t pud_index = pud_index(va);
+
+	if (sz == PUD_SIZE) {
+		if (pud_val(pudp[pud_index]) == 0)
+			pudp[pud_index] = pfn_pud(PFN_DOWN(pa), prot);
+		return;
+	}
+
+	if (pud_val(pudp[pud_index]) == 0) {
+		next_phys = alloc_pmd(va);
+		pudp[pud_index] = pfn_pud(PFN_DOWN(next_phys), PAGE_TABLE);
+		nextp = get_pmd_virt(next_phys);
+		memset(nextp, 0, PAGE_SIZE);
+	} else {
+		next_phys = PFN_PHYS(_pud_pfn(pudp[pud_index]));
+		nextp = get_pmd_virt(next_phys);
+	}
+
+	create_pmd_mapping(nextp, va, pa, sz, prot);
+}
+
+#define pgd_next_t		pud_t
+#define alloc_pgd_next(__va)	alloc_pud(__va)
+#define get_pgd_next_virt(__pa)	get_pud_virt(__pa)
+#define create_pgd_next_mapping(__nextp, __va, __pa, __sz, __prot)	\
+	create_pud_mapping(__nextp, __va, __pa, __sz, __prot)
+#define fixmap_pgd_next		(uintptr_t)fixmap_pud
+#define trampoline_pgd_next	(uintptr_t)trampoline_pud
+#else /* !CONFIG_MAXPHYSMEM_64TB */
 #define pgd_next_t		pmd_t
 #define alloc_pgd_next(__va)	alloc_pmd(__va)
 #define get_pgd_next_virt(__pa)	get_pmd_virt(__pa)
 #define create_pgd_next_mapping(__nextp, __va, __pa, __sz, __prot)	\
 	create_pmd_mapping(__nextp, __va, __pa, __sz, __prot)
-#define fixmap_pgd_next		fixmap_pmd
+#define fixmap_pgd_next		(uintptr_t)fixmap_pmd
+#define trampoline_pgd_next	(uintptr_t)trampoline_pmd
+#endif /* CONFIG_MAXPHYSMEM_64TB */
 #else
 #define pgd_next_t		pte_t
 #define alloc_pgd_next(__va)	alloc_pte(__va)
@@ -451,15 +521,24 @@ asmlinkage void __init setup_vm(uintptr_t dtb_pa)
 
 	/* Setup early PGD for fixmap */
 	create_pgd_mapping(early_pg_dir, FIXADDR_START,
-			   (uintptr_t)fixmap_pgd_next, PGDIR_SIZE, PAGE_TABLE);
+			   fixmap_pgd_next, PGDIR_SIZE, PAGE_TABLE);
 
 #ifndef __PAGETABLE_PMD_FOLDED
-	/* Setup fixmap PMD */
+	/* Setup fixmap PUD and PMD */
+#ifdef CONFIG_MAXPHYSMEM_64TB
+		create_pud_mapping(fixmap_pud, FIXADDR_START,
+			   (uintptr_t)fixmap_pmd, PUD_SIZE, PAGE_TABLE);
+#endif
 	create_pmd_mapping(fixmap_pmd, FIXADDR_START,
 			   (uintptr_t)fixmap_pte, PMD_SIZE, PAGE_TABLE);
+
 	/* Setup trampoline PGD and PMD */
 	create_pgd_mapping(trampoline_pg_dir, kernel_load_addr,
-			   (uintptr_t)trampoline_pmd, PGDIR_SIZE, PAGE_TABLE);
+			   trampoline_pgd_next, PGDIR_SIZE, PAGE_TABLE);
+#ifdef CONFIG_MAXPHYSMEM_64TB
+		create_pud_mapping(trampoline_pud, kernel_load_addr,
+			   (uintptr_t)trampoline_pmd, PUD_SIZE, PAGE_TABLE);
+#endif
 	create_pmd_mapping(trampoline_pmd, kernel_load_addr,
 			   load_pa, PMD_SIZE, PAGE_KERNEL_EXEC);
 #else
@@ -527,9 +606,12 @@ static void __init setup_vm_final(void)
 		}
 	}
 
-	/* Clear fixmap PTE and PMD mappings */
+	/* Clear fixmap page table mappings */
 	clear_fixmap(FIX_PTE);
 	clear_fixmap(FIX_PMD);
+#ifdef CONFIG_MAXPHYSMEM_64TB
+	clear_fixmap(FIX_PUD);
+#endif
 
 	/* Move to swapper page table */
 	csr_write(CSR_SATP, PFN_DOWN(__pa_symbol(swapper_pg_dir)) | SATP_MODE);

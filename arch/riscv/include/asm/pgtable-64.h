@@ -8,15 +8,37 @@
 
 #include <linux/const.h>
 
-#define PGDIR_SHIFT     30
+#ifdef CONFIG_MAXPHYSMEM_64TB
+#define PGDIR_SHIFT     39
+#else
+#define PGDIR_SHIFT	30
+#endif
 /* Size of region mapped by a page global directory */
 #define PGDIR_SIZE      (_AC(1, UL) << PGDIR_SHIFT)
 #define PGDIR_MASK      (~(PGDIR_SIZE - 1))
+
+#ifdef CONFIG_MAXPHYSMEM_64TB
+/* pud is folded into pgd in case of 3-level page table */
+#define PUD_SHIFT	30
+#define PUD_SIZE	(_AC(1, UL) << PUD_SHIFT)
+#define PUD_MASK	(~(PUD_SIZE - 1))
+#endif
 
 #define PMD_SHIFT       21
 /* Size of region mapped by a page middle directory */
 #define PMD_SIZE        (_AC(1, UL) << PMD_SHIFT)
 #define PMD_MASK        (~(PMD_SIZE - 1))
+
+#ifdef CONFIG_MAXPHYSMEM_64TB
+/* Page Upper Directory entry */
+typedef struct {
+	unsigned long pud;
+} pud_t;
+
+#define pud_val(x)      ((x).pud)
+#define __pud(x)        ((pud_t) { (x) })
+#define PTRS_PER_PUD    (PAGE_SIZE / sizeof(pud_t))
+#endif
 
 /* Page Middle Directory entry */
 typedef struct {
@@ -25,7 +47,6 @@ typedef struct {
 
 #define pmd_val(x)      ((x).pmd)
 #define __pmd(x)        ((pmd_t) { (x) })
-
 #define PTRS_PER_PMD    (PAGE_SIZE / sizeof(pmd_t))
 
 static inline int pud_present(pud_t pud)
@@ -53,6 +74,16 @@ static inline void pud_clear(pud_t *pudp)
 	set_pud(pudp, __pud(0));
 }
 
+static inline pud_t pfn_pud(unsigned long pfn, pgprot_t prot)
+{
+	return __pud((pfn << _PAGE_PFN_SHIFT) | pgprot_val(prot));
+}
+
+static inline unsigned long _pud_pfn(pud_t pud)
+{
+	return pud_val(pud) >> _PAGE_PFN_SHIFT;
+}
+
 static inline unsigned long pud_page_vaddr(pud_t pud)
 {
 	return (unsigned long)pfn_to_virt(pud_val(pud) >> _PAGE_PFN_SHIFT);
@@ -77,5 +108,47 @@ static inline unsigned long _pmd_pfn(pmd_t pmd)
 
 #define pmd_ERROR(e) \
 	pr_err("%s:%d: bad pmd %016lx.\n", __FILE__, __LINE__, pmd_val(e))
+
+#ifdef CONFIG_MAXPHYSMEM_64TB
+#define pud_ERROR(e)	\
+	pr_err("%s:%d: bad pud %016lx.\n", __FILE__, __LINE__, pud_val(e))
+
+static inline void set_p4d(p4d_t *p4dp, p4d_t p4d)
+{
+	*p4dp = p4d;
+}
+
+static inline int p4d_none(p4d_t p4d)
+{
+	return (p4d_val(p4d) == 0);
+}
+
+static inline int p4d_present(p4d_t p4d)
+{
+	return (p4d_val(p4d) & _PAGE_PRESENT);
+}
+
+static inline int p4d_bad(p4d_t p4d)
+{
+	return !p4d_present(p4d);
+}
+
+static inline void p4d_clear(p4d_t *p4d)
+{
+	set_p4d(p4d, __p4d(0));
+}
+
+static inline unsigned long p4d_page_vaddr(p4d_t p4d)
+{
+	return (unsigned long)pfn_to_virt(p4d_val(p4d) >> _PAGE_PFN_SHIFT);
+}
+
+#define pud_index(addr) (((addr) >> PUD_SHIFT) & (PTRS_PER_PUD - 1))
+
+static inline pud_t *pud_offset(p4d_t *p4d, unsigned long address)
+{
+	return (pud_t *)p4d_page_vaddr(*p4d) + pud_index(address);
+}
+#endif /* CONFIG_MAXPHYSMEM_64TB */
 
 #endif /* _ASM_RISCV_PGTABLE_64_H */
