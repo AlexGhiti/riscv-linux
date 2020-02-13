@@ -27,9 +27,7 @@ enum fixed_addresses {
 	FIX_FDT = FIX_FDT_END + FIX_FDT_SIZE / PAGE_SIZE - 1,
 	FIX_PTE,
 	FIX_PMD,
-#ifdef CONFIG_MAXPHYSMEM_64TB
 	FIX_PUD,
-#endif
 	FIX_EARLYCON_MEM_BASE,
 	__end_of_fixed_addresses
 };

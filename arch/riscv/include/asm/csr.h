@@ -40,16 +40,10 @@
 #ifndef CONFIG_64BIT
 #define SATP_PPN	_AC(0x003FFFFF, UL)
 #define SATP_MODE_32	_AC(0x80000000, UL)
-#define SATP_MODE	SATP_MODE_32
 #else
 #define SATP_PPN	_AC(0x00000FFFFFFFFFFF, UL)
 #define SATP_MODE_39	_AC(0x8000000000000000, UL)
 #define SATP_MODE_48	_AC(0x9000000000000000, UL)
-#ifdef CONFIG_MAXPHYSMEM_64TB
-#define SATP_MODE	SATP_MODE_48
-#else
-#define SATP_MODE	SATP_MODE_39
-#endif
 #endif
 
 /* Exception cause high bit - is an interrupt if set */
