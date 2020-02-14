@@ -1,0 +1,7 @@
+- Make RELOCATABLE depend on MMU as suggested by Anup
+- Rename kernel_load_addr into kernel_virt_addr as suggested by
+  Anup
+- Use __pa_symbol instead of __pa, as suggested by Zong
+- Rebased on top of v5.6-rc3
+
+TODO compile and test
