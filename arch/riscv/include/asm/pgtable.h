@@ -492,6 +492,7 @@ extern char _start[];
 extern void *dtb_early_va;
 extern uintptr_t dtb_early_pa;
 extern u64 satp_mode;
+extern bool pgtable_l4_enabled;
 void setup_bootmem(void);
 void paging_init(void);
 
