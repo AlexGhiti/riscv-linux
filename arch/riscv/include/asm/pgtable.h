@@ -456,6 +456,16 @@ static inline int ptep_clear_flush_young(struct vm_area_struct *vma,
 #define FIXADDR_START    (FIXADDR_TOP - FIXADDR_SIZE)
 
 /*
+ * In the RV64 Linux scheme, we give the user half of the virtual-address space
+ * and give the kernel the other (upper) half.
+ */
+#ifdef CONFIG_64BIT
+#define KERN_VIRT_START	(-(BIT(VA_BITS)) + TASK_SIZE)
+#else
+#define KERN_VIRT_START	FIXADDR_START
+#endif
+
+/*
  * Task size is:
  * -     0x9fc00000 (~2.5GB) for RV32.
  * -   0x4000000000 ( 256GB) for RV64 using SV39 mmu
