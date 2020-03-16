@@ -152,6 +152,9 @@ perf-$(CONFIG_LIBUNWIND_AARCH64)  += libunwind/arm64.o
 
 perf-$(CONFIG_LIBBABELTRACE) += data-convert-bt.o
 
+perf-y += data-convert-chrome.o
+perf-y += ../../bpf/bpftool/json_writer.o
+
 perf-y += scripting-engines/
 
 perf-$(CONFIG_ZLIB) += zlib.o

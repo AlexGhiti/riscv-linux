@@ -213,16 +213,19 @@ void jsonw_float_fmt(json_writer_t *self, const char *fmt, double num)
 	jsonw_printf(self, fmt, num);
 }
 
-#ifdef notused
 void jsonw_float(json_writer_t *self, double num)
 {
 	jsonw_printf(self, "%g", num);
 }
-#endif
 
 void jsonw_hu(json_writer_t *self, unsigned short num)
 {
 	jsonw_printf(self, "%hu", num);
+}
+
+void jsonw_hu_hex(json_writer_t *self, unsigned short num)
+{
+	jsonw_printf(self, "\"0x%hx\"", num);
 }
 
 void jsonw_uint(json_writer_t *self, uint64_t num)
@@ -230,9 +233,19 @@ void jsonw_uint(json_writer_t *self, uint64_t num)
 	jsonw_printf(self, "%"PRIu64, num);
 }
 
+void jsonw_uint_hex(json_writer_t *self, uint64_t num)
+{
+	jsonw_printf(self, "\"0x%"PRIx64"\"", num);
+}
+
 void jsonw_lluint(json_writer_t *self, unsigned long long int num)
 {
 	jsonw_printf(self, "%llu", num);
+}
+
+void jsonw_lluint_hex(json_writer_t *self, unsigned long long int num)
+{
+	jsonw_printf(self, "\"0x%llx\"", num);
 }
 
 void jsonw_int(json_writer_t *self, int64_t num)
@@ -253,13 +266,11 @@ void jsonw_bool_field(json_writer_t *self, const char *prop, bool val)
 	jsonw_bool(self, val);
 }
 
-#ifdef notused
 void jsonw_float_field(json_writer_t *self, const char *prop, double val)
 {
 	jsonw_name(self, prop);
 	jsonw_float(self, val);
 }
-#endif
 
 void jsonw_float_field_fmt(json_writer_t *self,
 			   const char *prop,
@@ -276,10 +287,22 @@ void jsonw_uint_field(json_writer_t *self, const char *prop, uint64_t num)
 	jsonw_uint(self, num);
 }
 
+void jsonw_uint_hex_field(json_writer_t *self, const char *prop, uint64_t num)
+{
+	jsonw_name(self, prop);
+	jsonw_uint_hex(self, num);
+}
+
 void jsonw_hu_field(json_writer_t *self, const char *prop, unsigned short num)
 {
 	jsonw_name(self, prop);
 	jsonw_hu(self, num);
+}
+
+void jsonw_hu_hex_field(json_writer_t *self, const char *prop, unsigned short num)
+{
+	jsonw_name(self, prop);
+	jsonw_hu_hex(self, num);
 }
 
 void jsonw_lluint_field(json_writer_t *self,
@@ -288,6 +311,14 @@ void jsonw_lluint_field(json_writer_t *self,
 {
 	jsonw_name(self, prop);
 	jsonw_lluint(self, num);
+}
+
+void jsonw_lluint_hex_field(json_writer_t *self,
+			const char *prop,
+			unsigned long long int num)
+{
+	jsonw_name(self, prop);
+	jsonw_lluint_hex(self, num);
 }
 
 void jsonw_int_field(json_writer_t *self, const char *prop, int64_t num)

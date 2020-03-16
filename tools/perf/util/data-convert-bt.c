@@ -292,7 +292,7 @@ static int add_tracepoint_field_value(struct ctf_writer *cw,
 	struct bt_ctf_field_type *type;
 	struct bt_ctf_field *array_field;
 	struct bt_ctf_field *field;
-	const char *name = fmtf->name;
+	const char *name;
 	void *data = sample->raw_data;
 	unsigned long flags = fmtf->flags;
 	unsigned int n_items;
