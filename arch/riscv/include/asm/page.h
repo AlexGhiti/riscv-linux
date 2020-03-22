@@ -31,9 +31,14 @@
  * When not using MMU this corresponds to the first free page in
  * physical memory (aligned on a page boundary).
  */
+#ifdef CONFIG_RELOCATABLE
+extern unsigned long kernel_virt_addr;
+#define PAGE_OFFSET		kernel_virt_addr
+#else
 #define PAGE_OFFSET		_AC(CONFIG_PAGE_OFFSET, UL)
+#endif
 
-#define KERN_VIRT_SIZE (-PAGE_OFFSET)
+#define KERN_VIRT_SIZE		-PAGE_OFFSET
 
 #ifndef __ASSEMBLY__
 

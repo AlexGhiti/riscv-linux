@@ -130,8 +130,13 @@ clear_bss_done:
 
 #ifdef CONFIG_MMU
 relocate:
+#ifdef CONFIG_RELOCATABLE
 	/* Relocate return address */
+	la a1, kernel_virt_addr
+	REG_L a1, 0(a1)
+#else
 	li a1, PAGE_OFFSET
+#endif
 	la a2, _start
 	sub a1, a1, a2
 	add ra, ra, a1
