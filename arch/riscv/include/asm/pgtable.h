@@ -23,7 +23,11 @@
 
 #define VMALLOC_SIZE     (KERN_VIRT_SIZE >> 1)
 #define VMALLOC_END      (PAGE_OFFSET - 1)
-#define VMALLOC_START    (PAGE_OFFSET - VMALLOC_SIZE)
+/*
+ * KERN_VIRT_SIZE >> 1 may result in a size not aligned on PMD_SIZE in
+ * relocatable kernel: make sure vmalloc base address is.
+ */
+#define VMALLOC_START	ALIGN_DOWN(PAGE_OFFSET - VMALLOC_SIZE, PMD_SIZE)
 
 #define BPF_JIT_REGION_SIZE	(SZ_128M)
 #define BPF_JIT_REGION_START	(PAGE_OFFSET - BPF_JIT_REGION_SIZE)
