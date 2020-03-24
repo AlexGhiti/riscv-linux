@@ -101,6 +101,11 @@ extern unsigned long kernel_virt_addr;
 extern unsigned long max_low_pfn;
 extern unsigned long min_low_pfn;
 
+static inline unsigned long get_kaslr_offset(void)
+{
+	return kernel_virt_addr - PAGE_OFFSET;
+}
+
 #define __pa_to_va_nodebug(x)	((void *)((unsigned long) (x) + va_pa_offset))
 #define __va_to_pa_nodebug(x)	((unsigned long)(x) - va_pa_offset)
 
