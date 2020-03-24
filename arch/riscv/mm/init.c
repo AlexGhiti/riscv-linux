@@ -412,6 +412,41 @@ static void __init clear_pgd(pgd_t *pgdp)
 			}
 		}
 }
+
+static void __init clear_page_tables(void)
+{
+	clear_pgd(early_pg_dir);
+	clear_pgd(trampoline_pg_dir);
+}
+
+void __init kaslr_create_page_table(uintptr_t start, uintptr_t end)
+{
+	pgd_next_t *nextp;
+	phys_addr_t next_phys;
+	uintptr_t pgd_index, va;
+	phys_addr_t pa = __pa(PAGE_OFFSET) + get_kaslr_offset();
+	uintptr_t map_size =
+		best_map_size(__pa(PAGE_OFFSET), MAX_EARLY_MAPPING_SIZE);
+
+	/* Expolit early_pg_dir and early_pmd during using early page table. */
+	for (va = start; va < end; va += map_size, pa += map_size) {
+		pgd_index = pgd_index(va);
+
+		if (pgd_val(early_pg_dir[pgd_index]) == 0) {
+			next_phys = alloc_pgd_next(va);
+			early_pg_dir[pgd_index] =
+				pfn_pgd(PFN_DOWN(next_phys), PAGE_TABLE);
+			nextp = (pgd_next_t *)(__va(next_phys));
+			memset(nextp, 0, PAGE_SIZE);
+		} else {
+			next_phys = PFN_PHYS(_pgd_pfn(early_pg_dir[pgd_index]));
+			nextp = (pgd_next_t *)(__va(next_phys));
+		}
+
+		create_pgd_next_mapping(nextp, va, pa, map_size,
+					PAGE_KERNEL_EXEC);
+	}
+}
 #endif
 
 /*
@@ -488,7 +523,13 @@ asmlinkage void __init setup_vm(uintptr_t dtb_pa)
 	uintptr_t map_size = best_map_size(load_pa, MAX_EARLY_MAPPING_SIZE);
 
 	va_pa_offset = kernel_virt_addr - load_pa;
-	pfn_base = PFN_DOWN(load_pa);
+
+	/*
+	 * Update pfn_base only if pfn_base is empty. It's avoid to mess up it
+	 * when re-enter this function by KASLR.
+	 */
+	if (!pfn_base)
+		pfn_base = PFN_DOWN(load_pa);
 
 #ifdef CONFIG_RELOCATABLE
 	/*
@@ -511,6 +552,16 @@ asmlinkage void __init setup_vm(uintptr_t dtb_pa)
 	BUILD_BUG_ON((_AC(CONFIG_PAGE_OFFSET, UL) % PGDIR_SIZE) != 0);
 	BUG_ON((load_pa % map_size) != 0);
 	BUG_ON(load_sz > MAX_EARLY_MAPPING_SIZE);
+
+#ifdef CONFIG_RANDOMIZE_BASE
+	/*
+	 * Enter setup_vm twice if there is a legal random destination in KASLR,
+	 * Reach here at second time, Clear page table because PTE entris allow
+	 * writing when it's empty.
+	 */
+	if (get_kaslr_offset())
+		clear_page_tables();
+#endif
 
 	/* Setup early PGD for fixmap */
 	create_pgd_mapping(early_pg_dir, FIXADDR_START,

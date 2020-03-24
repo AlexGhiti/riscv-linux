@@ -107,9 +107,12 @@ clear_bss_done:
 	la a2, boot_cpu_hartid
 	REG_S a0, (a2)
 
+.align 2
+early_page_table:
 	/* Initialize page tables and relocate to virtual addresses */
 	la sp, init_thread_union + THREAD_SIZE
 	mv a0, s1
+
 	call setup_vm
 #ifdef CONFIG_MMU
 	la a0, early_pg_dir
@@ -120,6 +123,29 @@ clear_bss_done:
 	la tp, init_task
 	sw zero, TASK_TI_CPU(tp)
 	la sp, init_thread_union + THREAD_SIZE
+
+#ifdef CONFIG_RANDOMIZE_BASE
+	/* KASRL initialization. Try to get a random kernel offset. */
+	call kaslr_early_init
+
+	/* If return value equals to zero, we don't need to randomize kernel */
+	beqz a0, 1f
+
+	la a1, early_page_table
+	add a1, a1, a0
+	la a0, va_pa_offset
+	REG_L a0, 0(a0)
+	sub a1, a1, a0
+	mv a0, s1
+
+	/*
+	 * Go to new kernel image destination, and disable MMU to re-create
+	 * early page table and do relocation.
+	 */
+	csrw CSR_TVEC, a1
+	csrw CSR_SATP, x0
+1:
+#endif
 
 #ifdef CONFIG_KASAN
 	call kasan_early_init
@@ -188,6 +214,19 @@ relocate:
 	la a3, .Lsecondary_park
 	csrw CSR_TVEC, a3
 
+#ifdef CONFIG_RANDOMIZE_BASE
+	/*
+	 * Wait winning hart to tell secondary harts where is the new
+	 * destination to go.
+	 */
+.Lwait_for_next_target:
+	la a3, secondary_next_target
+	REG_L a3, 0(a3)
+	beqz a3, .Lwait_for_next_target
+	jr a3
+.global secondary_random_target
+secondary_random_target:
+#endif
 	slli a3, a0, LGREG
 	la a1, __cpu_up_stack_pointer
 	la a2, __cpu_up_task_pointer

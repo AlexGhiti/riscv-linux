@@ -45,4 +45,6 @@ obj-$(CONFIG_PERF_EVENTS)	+= perf_callchain.o
 obj-$(CONFIG_HAVE_PERF_REGS)	+= perf_regs.o
 obj-$(CONFIG_RISCV_SBI)		+= sbi.o
 
+obj-$(CONFIG_RANDOMIZE_BASE)	+= kaslr.o
+
 clean:
