@@ -314,6 +314,7 @@ static void __init create_pmd_mapping(pmd_t *pmdp,
 #define get_pgd_next_virt(__pa)	get_pmd_virt(__pa)
 #define create_pgd_next_mapping(__nextp, __va, __pa, __sz, __prot)	\
 	create_pmd_mapping(__nextp, __va, __pa, __sz, __prot)
+#define clear_pgd_next_mapping(__nextp)	clear_pmd(__nextp)
 #define fixmap_pgd_next		fixmap_pmd
 #else
 #define pgd_next_t		pte_t
@@ -321,6 +322,7 @@ static void __init create_pmd_mapping(pmd_t *pmdp,
 #define get_pgd_next_virt(__pa)	get_pte_virt(__pa)
 #define create_pgd_next_mapping(__nextp, __va, __pa, __sz, __prot)	\
 	create_pte_mapping(__nextp, __va, __pa, __sz, __prot)
+#define clear_pgd_next_mapping(__nextp)	clear_pte(__nextp)
 #define fixmap_pgd_next		fixmap_pte
 #endif
 
@@ -359,6 +361,58 @@ static uintptr_t __init best_map_size(phys_addr_t base, phys_addr_t size)
 
 	return PMD_SIZE;
 }
+
+#ifdef CONFIG_RANDOMIZE_BASE
+static void __init clear_pte(pte_t *ptep)
+{
+	unsigned int i;
+
+	for (i = 0; i < PTRS_PER_PTE; i++)
+		if (!pte_none(ptep[i]))
+			ptep[i] = __pte(0);
+}
+
+static void __init clear_pmd(pmd_t *pmdp)
+{
+	unsigned int i;
+	pte_t *ptep;
+	phys_addr_t pte_phys;
+	uintptr_t kaslr_offset = get_kaslr_offset();
+
+	for (i = 0; i < PTRS_PER_PMD; i++)
+		if (!pmd_none(pmdp[i])) {
+			if (pmd_leaf(pmdp[i])) {
+				pmd_clear(&pmdp[i]);
+			} else {
+				pte_phys = PFN_PHYS(_pmd_pfn(pmdp[i]));
+				ptep = get_pte_virt(pte_phys + kaslr_offset);
+				clear_pte(ptep);
+				pmd_clear(&pmdp[i]);
+			}
+		}
+}
+
+static void __init clear_pgd(pgd_t *pgdp)
+{
+	unsigned int i;
+	pgd_next_t *nextp;
+	phys_addr_t next_phys;
+	uintptr_t kaslr_offset = get_kaslr_offset();
+
+	for (i = 0; i < PTRS_PER_PGD; i++)
+		if (pgd_val(pgdp[i]) != 0) {
+			if (pgd_leaf(pgd_val(pgdp[i]))) {
+				set_pgd(&pgdp[i], __pgd(0));
+			} else {
+				next_phys = PFN_PHYS(_pgd_pfn(pgdp[i]));
+				nextp = get_pgd_next_virt(next_phys +
+							  kaslr_offset);
+				clear_pgd_next_mapping(nextp);
+				set_pgd(&pgdp[i], __pgd(0));
+			}
+		}
+}
+#endif
 
 /*
  * setup_vm() is called from head.S with MMU-off.
