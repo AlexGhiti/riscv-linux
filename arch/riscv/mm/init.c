@@ -125,7 +125,7 @@ disable:
 }
 #endif /* CONFIG_BLK_DEV_INITRD */
 
-static phys_addr_t dtb_early_pa __initdata;
+phys_addr_t dtb_early_pa __initdata;
 
 void __init setup_bootmem(void)
 {
