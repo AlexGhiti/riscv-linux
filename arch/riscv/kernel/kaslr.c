@@ -156,6 +156,36 @@ static __init u64 kaslr_get_seed(void)
 	return ret;
 }
 
+static __init const u8 *kaslr_get_cmdline(void)
+{
+	static const u8 default_cmdline[] __initconst = CONFIG_CMDLINE;
+
+	if (!IS_ENABLED(CONFIG_CMDLINE_FORCE)) {
+		int node;
+		const u8 *prop;
+
+		node = fdt_path_offset(dtb_early_va, "/chosen");
+		if (node < 0)
+			goto out;
+
+		prop = fdt_getprop(dtb_early_va, node, "bootargs", NULL);
+		if (!prop)
+			goto out;
+
+		return prop;
+	}
+
+out:
+	return default_cmdline;
+}
+
+static __init bool kaslr_is_disabled(void)
+{
+	const u8 *cmdline = kaslr_get_cmdline();
+
+	return strstr(cmdline, "nokaslr") != NULL;
+}
+
 static __init bool is_overlap(uintptr_t s1, uintptr_t e1, uintptr_t s2,
 			      uintptr_t e2)
 {
@@ -377,6 +407,10 @@ uintptr_t __init kaslr_early_init(void)
 	/* Get zero value at second time to avoid doing randomization again. */
 	seed = kaslr_get_seed();
 	if (!seed)
+		return 0;
+
+	/* Check whether disable kaslr by cmdline. */
+	if (kaslr_is_disabled())
 		return 0;
 
 	/* Get the random number for kaslr offset. */
