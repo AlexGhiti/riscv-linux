@@ -15,6 +15,7 @@
 #include <linux/set_memory.h>
 #ifdef CONFIG_RELOCATABLE
 #include <linux/elf.h>
+#include <asm/kaslr.h>
 #endif
 
 #include <asm/fixmap.h>
@@ -648,6 +649,11 @@ static void __init setup_vm_final(void)
 	/* Move to swapper page table */
 	csr_write(CSR_SATP, PFN_DOWN(__pa_symbol(swapper_pg_dir)) | SATP_MODE);
 	local_flush_tlb_all();
+
+#ifdef CONFIG_RANDOMIZE_BASE
+	/* Clear orignial kernel image and set the right permission. */
+	kaslr_late_init();
+#endif
 }
 
 void free_initmem(void)

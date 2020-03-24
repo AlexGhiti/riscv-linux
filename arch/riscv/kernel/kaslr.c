@@ -356,6 +356,18 @@ static __init uintptr_t get_random_offset(u64 seed, uintptr_t kernel_size)
 	return get_legal_offset(random, kernel_size_align);
 }
 
+void __init kaslr_late_init(void)
+{
+	uintptr_t kernel_size;
+
+	/* Clear original kernel image. */
+	if (kaslr_offset) {
+		kernel_size = (uintptr_t) _end - (uintptr_t) _start;
+		memset((void *)PAGE_OFFSET, 0, kernel_size);
+		set_memory_nx(PAGE_OFFSET, kaslr_offset >> PAGE_SHIFT);
+	}
+}
+
 uintptr_t __init kaslr_early_init(void)
 {
 	u64 seed;
