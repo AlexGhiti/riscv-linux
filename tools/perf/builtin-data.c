@@ -6,6 +6,7 @@
 #include <subcmd/parse-options.h>
 #include "data-convert.h"
 #include "data-convert-bt.h"
+#include "data-convert-chrome.h"
 
 typedef int (*data_cmd_fn_t)(int argc, const char **argv);
 
@@ -53,7 +54,7 @@ static const char * const data_convert_usage[] = {
 
 static int cmd_data_convert(int argc, const char **argv)
 {
-	const char *to_ctf     = NULL;
+	const char *to_ctf     = NULL, *to_chrometf = NULL;
 	struct perf_data_convert_opts opts = {
 		.force = false,
 		.all = false,
@@ -64,6 +65,7 @@ static int cmd_data_convert(int argc, const char **argv)
 #ifdef HAVE_LIBBABELTRACE_SUPPORT
 		OPT_STRING(0, "to-ctf", &to_ctf, NULL, "Convert to CTF format"),
 #endif
+		OPT_STRING(0, "to-chrometf", &to_chrometf, NULL, "Convert to Chrome Trace Format format"),
 		OPT_BOOLEAN('f', "force", &opts.force, "don't complain, do it"),
 		OPT_BOOLEAN(0, "all", &opts.all, "Convert all events"),
 		OPT_END()
@@ -89,6 +91,9 @@ static int cmd_data_convert(int argc, const char **argv)
 		return -1;
 #endif
 	}
+
+	if (to_chrometf)
+		return convert__perf2chrometf(input_name, to_chrometf, &opts);
 
 	return 0;
 }

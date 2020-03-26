@@ -133,6 +133,8 @@ libperf-$(CONFIG_LIBUNWIND_X86)      += libunwind/x86_32.o
 libperf-$(CONFIG_LIBUNWIND_AARCH64)  += libunwind/arm64.o
 
 libperf-$(CONFIG_LIBBABELTRACE) += data-convert-bt.o
+libperf-y += data-convert-chrome.o                                                  
+libperf-y += ../../bpf/bpftool/json_writer.o
 
 libperf-y += scripting-engines/
 
