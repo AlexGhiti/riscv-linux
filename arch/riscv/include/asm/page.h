@@ -32,11 +32,19 @@
  * physical memory (aligned on a page boundary).
  */
 #ifdef CONFIG_RELOCATABLE
-extern unsigned long kernel_virt_addr;
 #define PAGE_OFFSET		kernel_virt_addr
+
+#ifdef CONFIG_64BIT
+/*
+ * By default, CONFIG_PAGE_OFFSET value corresponds to SV48 address space so
+ * define the PAGE_OFFSET value for SV39.
+ */
+#define PAGE_OFFSET_L3		0xffffffe000000000
+#define PAGE_OFFSET_L4		_AC(CONFIG_PAGE_OFFSET, UL)
+#endif /* CONFIG_64BIT */
 #else
 #define PAGE_OFFSET		_AC(CONFIG_PAGE_OFFSET, UL)
-#endif
+#endif /* CONFIG_RELOCATABLE */
 
 #define KERN_VIRT_SIZE		-PAGE_OFFSET
 
@@ -104,6 +112,9 @@ extern unsigned long pfn_base;
 
 extern unsigned long max_low_pfn;
 extern unsigned long min_low_pfn;
+#ifdef CONFIG_RELOCATABLE
+extern unsigned long kernel_virt_addr;
+#endif
 
 #define __pa_to_va_nodebug(x)	((void *)((unsigned long) (x) + va_pa_offset))
 #define __va_to_pa_nodebug(x)	((unsigned long)(x) - va_pa_offset)

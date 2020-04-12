@@ -113,6 +113,8 @@ clear_bss_done:
 	call setup_vm
 #ifdef CONFIG_MMU
 	la a0, early_pg_dir
+	la a1, satp_mode
+	REG_L a1, (a1)
 	call relocate
 #endif /* CONFIG_MMU */
 
@@ -148,7 +150,8 @@ relocate:
 
 	/* Compute satp for kernel page tables, but don't load it yet */
 	srl a2, a0, PAGE_SHIFT
-	li a1, SATP_MODE
+	la a1, satp_mode
+	REG_L a1, 0(a1)
 	or a2, a2, a1
 
 	/*
@@ -213,6 +216,8 @@ relocate:
 #ifdef CONFIG_MMU
 	/* Enable virtual memory and relocate to virtual address */
 	la a0, swapper_pg_dir
+	la a1, satp_mode
+	REG_L a1, (a1)
 	call relocate
 #endif
 
