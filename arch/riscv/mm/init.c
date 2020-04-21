@@ -517,7 +517,7 @@ asmlinkage __init void set_satp_mode(uintptr_t load_pa, uintptr_t dtb_pa)
 				continue;
 
 			if (!strcmp(mmu_type, "riscv,sv39")) {
-				disabled_pgtable_l4();
+				disable_pgtable_l4();
 				return;
 			}
 
@@ -542,7 +542,7 @@ asmlinkage __init void set_satp_mode(uintptr_t load_pa, uintptr_t dtb_pa)
 	local_flush_tlb_all();
 
 	if (hw_satp != identity_satp)
-		disabled_pgtable_l4();
+		disable_pgtable_l4();
 
 	memset(early_pg_dir, 0, PAGE_SIZE);
 	memset(early_pud, 0, PAGE_SIZE);
@@ -558,13 +558,14 @@ asmlinkage void __init setup_vm(uintptr_t dtb_pa)
 	uintptr_t load_sz = (uintptr_t)(&_end) - load_pa;
 	uintptr_t map_size = best_map_size(load_pa, MAX_EARLY_MAPPING_SIZE);
 
+#ifdef CONFIG_64BIT
+	set_satp_mode(load_pa, dtb_pa);
+#endif
+
 	va_pa_offset = PAGE_OFFSET - load_pa;
 	pfn_base = PFN_DOWN(load_pa);
 
 #ifdef CONFIG_RELOCATABLE
-#ifdef CONFIG_64BIT
-	set_satp_mode(load_pa, dtb_pa);
-#endif
 	/*
 	 * Early page table uses only one PGDIR, which makes it possible
 	 * to map PGDIR_SIZE aligned on PGDIR_SIZE: if the relocation offset
