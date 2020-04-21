@@ -567,11 +567,11 @@ asmlinkage void __init setup_vm(uintptr_t dtb_pa)
 #endif
 	/*
 	 * Early page table uses only one PGDIR, which makes it possible
-	 * to map 1GB aligned on 1GB: if the relocation offset makes the kernel
-	 * cross over a 1G boundary, raise a bug since a part of the kernel
-	 * would not get mapped.
+	 * to map PGDIR_SIZE aligned on PGDIR_SIZE: if the relocation offset
+	 * makes the kernel cross over a PGDIR_SIZE boundary, raise a bug
+	 * since a part of the kernel would not get mapped.
 	 */
-	BUG_ON(SZ_1G - (PAGE_OFFSET & (SZ_1G - 1)) < load_sz);
+	BUG_ON(PGDIR_SIZE - (PAGE_OFFSET & (PGDIR_SIZE - 1)) < load_sz);
 	relocate_kernel(load_pa);
 #endif
 
