@@ -90,6 +90,7 @@ typedef struct page *pgtable_t;
 
 #ifdef CONFIG_MMU
 extern unsigned long va_pa_offset;
+extern unsigned long va_kernel_pa_offset;
 extern unsigned long pfn_base;
 #define ARCH_PFN_OFFSET		(pfn_base)
 #else
@@ -99,9 +100,12 @@ extern unsigned long pfn_base;
 
 extern unsigned long max_low_pfn;
 extern unsigned long min_low_pfn;
+extern unsigned long kernel_virt_addr;
 
 #define __pa_to_va_nodebug(x)	((void *)((unsigned long) (x) + va_pa_offset))
-#define __va_to_pa_nodebug(x)	((unsigned long)(x) - va_pa_offset)
+#define linear_mapping_va_to_pa(x)	((unsigned long)(x) - va_pa_offset)
+#define kernel_mapping_va_to_pa(x)	((unsigned long)(x) - va_kernel_pa_offset)
+#define __va_to_pa_nodebug(x)		((x >= PAGE_OFFSET) ? linear_mapping_va_to_pa(x): kernel_mapping_va_to_pa(x))
 
 #ifdef CONFIG_DEBUG_VIRTUAL
 extern phys_addr_t __virt_to_phys(unsigned long x);
