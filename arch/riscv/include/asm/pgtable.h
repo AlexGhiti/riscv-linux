@@ -24,9 +24,11 @@
 #define VMALLOC_END      (PAGE_OFFSET - 1)
 #define VMALLOC_START    (PAGE_OFFSET - VMALLOC_SIZE)
 
+extern unsigned long kernel_virt_addr;
+
 #define BPF_JIT_REGION_SIZE	(SZ_128M)
-#define BPF_JIT_REGION_START	(PAGE_OFFSET - BPF_JIT_REGION_SIZE)
-#define BPF_JIT_REGION_END	(VMALLOC_END)
+#define BPF_JIT_REGION_START	(kernel_virt_addr - BPF_JIT_REGION_SIZE)
+#define BPF_JIT_REGION_END	(kernel_virt_addr)
 
 /*
  * Roughly size the vmemmap space to be large enough to fit enough
