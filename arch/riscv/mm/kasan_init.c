@@ -24,14 +24,14 @@ asmlinkage void __init kasan_early_init(void)
 	for (i = 0; i < PTRS_PER_PMD; ++i)
 		set_pmd(kasan_early_shadow_pmd + i,
 			pfn_pmd(PFN_DOWN
-				(__pa((uintptr_t) kasan_early_shadow_pte)),
+				(__pa_symbol((uintptr_t) kasan_early_shadow_pte)),
 				__pgprot(_PAGE_TABLE)));
 
 	for (i = KASAN_SHADOW_START; i < KASAN_SHADOW_END;
 	     i += PGDIR_SIZE, ++pgd)
 		set_pgd(pgd,
 			pfn_pgd(PFN_DOWN
-				(__pa(((uintptr_t) kasan_early_shadow_pmd))),
+				(__pa_symbol(((uintptr_t) kasan_early_shadow_pmd))),
 				__pgprot(_PAGE_TABLE)));
 
 	/* init for swapper_pg_dir */
@@ -41,7 +41,7 @@ asmlinkage void __init kasan_early_init(void)
 	     i += PGDIR_SIZE, ++pgd)
 		set_pgd(pgd,
 			pfn_pgd(PFN_DOWN
-				(__pa(((uintptr_t) kasan_early_shadow_pmd))),
+				(__pa_symbol(((uintptr_t) kasan_early_shadow_pmd))),
 				__pgprot(_PAGE_TABLE)));
 
 	flush_tlb_all();
@@ -71,12 +71,12 @@ static void __init populate(void *start, void *end)
 
 	for (i = 0, offset = 0; i < n_ptes; i++, offset += PTRS_PER_PTE)
 		set_pmd(&pmd[i],
-			pfn_pmd(PFN_DOWN(__pa(&pte[offset])),
+			pfn_pmd(PFN_DOWN(__pa_symbol(&pte[offset])),
 				__pgprot(_PAGE_TABLE)));
 
 	for (i = 0, offset = 0; i < n_pmds; i++, offset += PTRS_PER_PMD)
 		set_pgd(&pgd[i],
-			pfn_pgd(PFN_DOWN(__pa(&pmd[offset])),
+			pfn_pgd(PFN_DOWN(__pa_symbol(&pmd[offset])),
 				__pgprot(_PAGE_TABLE)));
 
 	flush_tlb_all();
