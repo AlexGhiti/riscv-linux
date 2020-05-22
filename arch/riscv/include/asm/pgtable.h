@@ -20,11 +20,13 @@
  * the kernel.
  */
 #define KERNEL_VIRT_ADDR	(VMALLOC_END - SZ_2G + 1)
-#define KERNEL_LINK_ADDR	KERNEL_VIRT_ADDR
+#define KERNEL_LINK_ADDR	(VMALLOC_LINK_END - SZ_2G + 1)
 
 #define VMALLOC_SIZE     (KERN_VIRT_SIZE >> 1)
 #define VMALLOC_END      (PAGE_OFFSET - 1)
 #define VMALLOC_START    (PAGE_OFFSET - VMALLOC_SIZE)
+
+#define VMALLOC_LINK_END	(_AC(CONFIG_PAGE_OFFSET, UL) - 1)
 
 #define BPF_JIT_REGION_SIZE	(SZ_128M)
 #define BPF_JIT_REGION_START	(kernel_virt_addr)
@@ -67,8 +69,7 @@
 
 #ifndef __ASSEMBLY__
 
-/* Page Upper Directory not used in RISC-V */
-#include <asm-generic/pgtable-nopud.h>
+#include <asm-generic/pgtable-nop4d.h>
 #include <asm/page.h>
 #include <asm/tlbflush.h>
 #include <linux/mm_types.h>
@@ -81,7 +82,7 @@
 
 #ifdef CONFIG_MMU
 #ifdef CONFIG_64BIT
-#define VA_BITS		39
+#define VA_BITS		(pgtable_l4_enabled ? 48 : 39)
 #define PA_BITS		56
 #else
 #define VA_BITS		32
