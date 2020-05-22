@@ -10,6 +10,9 @@
 #include <asm/tlbflush.h>
 #include <asm/fixmap.h>
 
+#define kasan_early_shadow_pgd_next (pgtable_l4_enabled ?	\
+		(uintptr_t)kasan_early_shadow_pud: (uintptr_t)kasan_early_shadow_pmd)
+
 extern pgd_t early_pg_dir[PTRS_PER_PGD];
 asmlinkage void __init kasan_early_init(void)
 {
@@ -27,11 +30,19 @@ asmlinkage void __init kasan_early_init(void)
 				(__pa((uintptr_t) kasan_early_shadow_pte)),
 				__pgprot(_PAGE_TABLE)));
 
+	if (pgtable_l4_enabled) {
+		for (i = 0; i < PTRS_PER_PUD; ++i)
+			set_pud(kasan_early_shadow_pud + i,
+					pfn_pud(PFN_DOWN
+						(__pa((uintptr_t) kasan_early_shadow_pmd)),
+						__pgprot(_PAGE_TABLE)));
+	}
+
 	for (i = KASAN_SHADOW_START; i < KASAN_SHADOW_END;
 	     i += PGDIR_SIZE, ++pgd)
 		set_pgd(pgd,
 			pfn_pgd(PFN_DOWN
-				(__pa(((uintptr_t) kasan_early_shadow_pmd))),
+				(__pa((kasan_early_shadow_pgd_next))),
 				__pgprot(_PAGE_TABLE)));
 
 	/* init for swapper_pg_dir */
@@ -41,7 +52,7 @@ asmlinkage void __init kasan_early_init(void)
 	     i += PGDIR_SIZE, ++pgd)
 		set_pgd(pgd,
 			pfn_pgd(PFN_DOWN
-				(__pa(((uintptr_t) kasan_early_shadow_pmd))),
+				(__pa((kasan_early_shadow_pgd_next))),
 				__pgprot(_PAGE_TABLE)));
 
 	local_flush_tlb_all();
@@ -150,7 +161,7 @@ void __init kasan_shallow_populate_pgd(unsigned long vaddr, unsigned long end)
 
 	do {
 		next = pgd_addr_end(vaddr, end);
-		if (pgd_page_vaddr(*pgd_k) == (unsigned long)lm_alias(kasan_early_shadow_pmd)) {
+		if (pgd_page_vaddr(*pgd_k) == (unsigned long)lm_alias(kasan_early_shadow_pgd_next)) {
 			p = memblock_alloc(PAGE_SIZE, PAGE_SIZE);
 			set_pgd(pgd_k, pfn_pgd(PFN_DOWN(__pa(p)), PAGE_TABLE));
 		}
