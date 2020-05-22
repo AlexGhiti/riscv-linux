@@ -10,6 +10,9 @@
 #include <asm/tlbflush.h>
 #include <asm/fixmap.h>
 
+#define kasan_early_shadow_pgd_next (pgtable_l4_enabled ?	\
+		(uintptr_t)kasan_early_shadow_pud: (uintptr_t)kasan_early_shadow_pmd)
+
 extern pgd_t early_pg_dir[PTRS_PER_PGD];
 asmlinkage void __init kasan_early_init(void)
 {
@@ -27,11 +30,19 @@ asmlinkage void __init kasan_early_init(void)
 				(__pa((uintptr_t) kasan_early_shadow_pte)),
 				__pgprot(_PAGE_TABLE)));
 
+	if (pgtable_l4_enabled) {
+		for (i = 0; i < PTRS_PER_PUD; ++i)
+			set_pud(kasan_early_shadow_pud + i,
+					pfn_pud(PFN_DOWN
+						(__pa((uintptr_t) kasan_early_shadow_pmd)),
+						__pgprot(_PAGE_TABLE)));
+	}
+
 	for (i = KASAN_SHADOW_START; i < KASAN_SHADOW_END;
 	     i += PGDIR_SIZE, ++pgd)
 		set_pgd(pgd,
 			pfn_pgd(PFN_DOWN
-				(__pa(((uintptr_t) kasan_early_shadow_pmd))),
+				(__pa((kasan_early_shadow_pgd_next))),
 				__pgprot(_PAGE_TABLE)));
 
 	/* init for swapper_pg_dir */
@@ -41,7 +52,7 @@ asmlinkage void __init kasan_early_init(void)
 	     i += PGDIR_SIZE, ++pgd)
 		set_pgd(pgd,
 			pfn_pgd(PFN_DOWN
-				(__pa(((uintptr_t) kasan_early_shadow_pmd))),
+				(__pa((kasan_early_shadow_pgd_next))),
 				__pgprot(_PAGE_TABLE)));
 
 	local_flush_tlb_all();
@@ -74,10 +85,28 @@ static void __init populate(void *start, void *end)
 			pfn_pmd(PFN_DOWN(__pa(&pte[offset])),
 				__pgprot(_PAGE_TABLE)));
 
-	for (i = 0, offset = 0; i < n_pmds; i++, offset += PTRS_PER_PMD)
-		set_pgd(&pgd[i],
-			pfn_pgd(PFN_DOWN(__pa(&pmd[offset])),
-				__pgprot(_PAGE_TABLE)));
+	if (pgtable_l4_enabled) {
+		unsigned long n_puds =
+			((n_pmds + PTRS_PER_PUD) & -PTRS_PER_PUD) / PTRS_PER_PUD;
+		pud_t *pud =
+			memblock_alloc(n_puds * PTRS_PER_PUD * sizeof(pud_t), PAGE_SIZE);
+
+		for (i = 0, offset = 0; i < n_pmds; i++, offset += PTRS_PER_PMD)
+			set_pud(&pud[i],
+					pfn_pud(PFN_DOWN(__pa(&pmd[offset])),
+						__pgprot(_PAGE_TABLE)));
+
+		for (i = 0, offset = 0; i < n_puds; i++, offset += PTRS_PER_PUD)
+			set_pgd(&pgd[i],
+					pfn_pgd(PFN_DOWN(__pa(&pud[offset])),
+						__pgprot(_PAGE_TABLE)));
+
+	} else {
+		for (i = 0, offset = 0; i < n_pmds; i++, offset += PTRS_PER_PMD)
+			set_pgd(&pgd[i],
+					pfn_pgd(PFN_DOWN(__pa(&pmd[offset])),
+						__pgprot(_PAGE_TABLE)));
+	}
 
 	local_flush_tlb_all();
 	memset(start, 0, end - start);

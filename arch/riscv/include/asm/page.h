@@ -31,7 +31,16 @@
  * When not using MMU this corresponds to the first free page in
  * physical memory (aligned on a page boundary).
  */
+#ifdef CONFIG_64BIT
+#define PAGE_OFFSET		__page_offset
+/*
+ * By default, CONFIG_PAGE_OFFSET value corresponds to SV48 address space so
+ * define the PAGE_OFFSET value for SV39.
+ */
+#define PAGE_OFFSET_L3		0xffffffe000000000
+#else
 #define PAGE_OFFSET		_AC(CONFIG_PAGE_OFFSET, UL)
+#endif /* CONFIG_64BIT */
 
 #define KERN_VIRT_SIZE (-PAGE_OFFSET)
 
@@ -102,6 +111,9 @@ extern unsigned long pfn_base;
 extern unsigned long max_low_pfn;
 extern unsigned long min_low_pfn;
 extern unsigned long kernel_virt_addr;
+#ifdef CONFIG_64BIT
+extern unsigned long __page_offset;
+#endif
 extern uintptr_t load_pa, load_sz;
 
 #define linear_mapping_pa_to_va(x)	((void *)((unsigned long)(x) + va_pa_offset))
