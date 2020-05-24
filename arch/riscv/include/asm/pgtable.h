@@ -69,7 +69,11 @@
 
 #ifndef __ASSEMBLY__
 
+#ifdef CONFIG_FORCE_SV39
+#include <asm-generic/pgtable-nopud.h>
+#else
 #include <asm-generic/pgtable-nop4d.h>
+#endif
 #include <asm/page.h>
 #include <asm/tlbflush.h>
 #include <linux/mm_types.h>

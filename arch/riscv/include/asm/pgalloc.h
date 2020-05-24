@@ -37,6 +37,7 @@ static inline void pud_populate(struct mm_struct *mm, pud_t *pud, pmd_t *pmd)
 	set_pud(pud, __pud((pfn << _PAGE_PFN_SHIFT) | _PAGE_TABLE));
 }
 
+#ifndef CONFIG_FORCE_SV39
 static inline void p4d_populate(struct mm_struct *mm, p4d_t *p4d, pud_t *pud)
 {
 	if (pgtable_l4_enabled) {
@@ -72,6 +73,7 @@ static inline void pud_free(struct mm_struct *mm, pud_t *pud)
 }
 
 #define __pud_free_tlb(tlb, pud, addr)  pud_free((tlb)->mm, pud)
+#endif /* CONFIG_FORCE_SV39 */
 #endif /* __PAGETABLE_PMD_FOLDED */
 
 #define pmd_pgtable(pmd)	pmd_page(pmd)

@@ -68,7 +68,7 @@ config RISCV
 	select ARCH_HAS_GCOV_PROFILE_ALL
 	select HAVE_COPY_THREAD_TLS
 	select HAVE_ARCH_KASAN if MMU && 64BIT
-	select RELOCATABLE if 64BIT
+	select RELOCATABLE if 64BIT && !FORCE_SV39
 
 config ARCH_MMAP_RND_BITS_MIN
 	default 18 if 64BIT
@@ -107,6 +107,7 @@ config PAGE_OFFSET
 	default 0xC0000000 if 32BIT && MAXPHYSMEM_2GB
 	default 0x80000000 if 64BIT && !MMU
 	default 0xffffffff80000000 if 64BIT && MAXPHYSMEM_2GB
+	default 0xffffffe000000000 if 64BIT && FORCE_SV39
 	default 0xffffc00000000000 if 64BIT && !MAXPHYSMEM_2GB
 
 config ARCH_FLATMEM_ENABLE
@@ -161,7 +162,7 @@ config FIX_EARLYCON_MEM
 config PGTABLE_LEVELS
 	int
 	default 4 if 64BIT && RELOCATABLE
-	default 3 if 64BIT
+	default 3 if 64BIT && FORCE_SV39
 	default 2
 
 config RELOCATABLE
@@ -232,6 +233,11 @@ config MAXPHYSMEM_2GB
 	default y if 32BIT
 	default y if 64BIT && CMODEL_MEDLOW
 	default n
+
+config FORCE_SV39
+	bool "Force sv39"
+	help
+	  Select if you want a non-relocatable kernel with 3-level page table.
 
 config SMP
 	bool "Symmetric Multi-Processing"

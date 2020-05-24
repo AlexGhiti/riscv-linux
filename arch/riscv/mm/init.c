@@ -26,9 +26,9 @@
 #include "../kernel/head.h"
 
 #ifdef CONFIG_64BIT
-u64 satp_mode = IS_ENABLED(CONFIG_MAXPHYSMEM_2GB) ?
+u64 satp_mode = IS_ENABLED(CONFIG_MAXPHYSMEM_2GB) || IS_ENABLED(CONFIG_FORCE_SV39) ?
 				SATP_MODE_39 : SATP_MODE_48;
-bool pgtable_l4_enabled = IS_ENABLED(CONFIG_MAXPHYSMEM_2GB) ? false : true;
+bool pgtable_l4_enabled = IS_ENABLED(CONFIG_MAXPHYSMEM_2GB) || IS_ENABLED(CONFIG_FORCE_SV39) ? false : true;
 #else
 u64 satp_mode = SATP_MODE_32;
 bool pgtable_l4_enabled;
@@ -581,7 +581,8 @@ asmlinkage void __init setup_vm(uintptr_t dtb_pa)
 	load_pa = (uintptr_t)(&_start);
 	load_sz = (uintptr_t)(&_end) - load_pa;
 
-#if defined(CONFIG_64BIT) && !defined(CONFIG_MAXPHYSMEM_2GB)
+#if defined(CONFIG_64BIT) && defined(CONFIG_RELOCATABLE) \
+	&& !defined(CONFIG_MAXPHYSMEM_2GB)
 	set_satp_mode(load_pa, dtb_pa);
 #endif
 
