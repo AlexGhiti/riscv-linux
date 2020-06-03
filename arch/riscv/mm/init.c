@@ -237,6 +237,28 @@ static void __init setup_bootmem(void)
 		memblock_set_current_limit(max_mapped_addr - 4096);
 #endif
 
+        /*
+         * Make sure that virtual and physical addresses are at least aligned
+         * on PMD_SIZE, even if we have to lose some memory (< PMD_SIZE)
+         * otherwise the linear mapping would get mapped using PTE entries.
+         */
+        phys_ram_base = memblock_start_of_DRAM();
+        if (phys_ram_base & (PMD_SIZE - 1)) {
+                uintptr_t next_phys_ram_base;
+
+                next_phys_ram_base = (phys_ram_base + PMD_SIZE - 1) & PMD_MASK;
+                memblock_remove(phys_ram_base, next_phys_ram_base - phys_ram_base);
+                phys_ram_base = next_phys_ram_base;
+        }
+
+	/*
+	 * We started considering PAGE_OFFSET would start at load_pa because
+	 * it was the only piece of information we had, but now make PAGE_OFFSET
+	 * point to the real beginning of the memory area.
+	 */
+	kernel_map.va_pa_offset = PAGE_OFFSET - phys_ram_base;
+	pfn_base = PFN_DOWN(phys_ram_base);
+
 	min_low_pfn = PFN_UP(phys_ram_base);
 	max_low_pfn = max_pfn = PFN_DOWN(phys_ram_end);
 
