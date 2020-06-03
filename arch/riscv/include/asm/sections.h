@@ -30,4 +30,15 @@ static inline bool is_va_kernel_lm_alias_text(uintptr_t va)
 	return va >= start && va < end;
 }
 
+static inline bool va_intersects_kernel_lm_alias(uintptr_t va, ssize_t size)
+{
+	void *start = lm_alias(_start);
+	void *end = lm_alias(_end);
+	void *vend = (void *)va + size;
+	size_t kernel_size = end - start + 1;
+
+	return memory_contains((void *)va, vend, start, kernel_size) ||
+	       memory_intersects(start, end, (void *)va, size);
+}
+
 #endif /* __ASM_SECTIONS_H */

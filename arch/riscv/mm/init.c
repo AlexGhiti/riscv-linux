@@ -582,13 +582,33 @@ void __init create_pgd_mapping(pgd_t *pgdp,
 	create_pgd_next_mapping(nextp, va, pa, sz, prot);
 }
 
-static uintptr_t __init best_map_size(phys_addr_t base, phys_addr_t size)
+static bool __init is_map_size_ok(uintptr_t map_size,
+				  phys_addr_t base_phys, uintptr_t base_virt,
+				  uintptr_t size)
 {
-	/* Upgrade to PMD_SIZE mappings whenever possible */
-	if ((base & (PMD_SIZE - 1)) || (size & (PMD_SIZE - 1)))
-		return PAGE_SIZE;
+	if (size < map_size)
+		return false;
 
-	return PMD_SIZE;
+	if (base_phys & (map_size - 1) || base_virt & (map_size - 1))
+		return false;
+
+	return true;
+}
+
+// TODO should this function deal with that?!
+//		    va_intersects_kernel_lm_alias(va, remaining_size))
+static uintptr_t __init best_map_size(phys_addr_t base_phys,
+				      uintptr_t base_virt, phys_addr_t size)
+{
+#ifndef __PAGETABLE_PMD_FOLDED
+	if (is_map_size_ok(PGDIR_SIZE, base_phys, base_virt, size))
+		return PGDIR_SIZE;
+#endif
+
+	if (is_map_size_ok(PMD_SIZE, base_phys, base_virt, size))
+		return PMD_SIZE;
+
+	return PAGE_SIZE;
 }
 
 #ifdef CONFIG_XIP_KERNEL
@@ -991,10 +1011,45 @@ asmlinkage void __init setup_vm(uintptr_t dtb_pa)
 	pt_ops_set_fixmap();
 }
 
-static void __init setup_vm_final(void)
+static void __init create_linear_page_table(phys_addr_t start, phys_addr_t end)
 {
 	uintptr_t va, map_size;
-	phys_addr_t pa, start, end;
+	ssize_t remaining_size;
+	phys_addr_t pa;
+
+	pa = start;
+	remaining_size = end - start;
+
+	while (remaining_size > 0) {
+		va = (uintptr_t)__va(pa);
+
+		/*
+		 * The kernel is loaded at an address aligned with PMD_SIZE so
+		 * for 32-bit kernel, the linear mapping should always use PMD
+		 * entries.
+		 * For 64-bit kernel, the kernel is always mapped using PMD
+		 * entries, so if the address intersects with the kernel mapping
+		 * alias, that means we must use a PMD entry and we are
+		 * guaranteed not to map a kernel alias with the wrong
+		 * permissions.
+		 */
+		if (IS_ENABLED(CONFIG_32BIT) ||
+		    va_intersects_kernel_lm_alias(va, remaining_size))
+			map_size = PMD_SIZE;
+		else
+			map_size = best_map_size(pa, va, remaining_size);
+
+		create_pgd_mapping(swapper_pg_dir, va, pa, map_size,
+				   pgprot_from_va(va));
+
+		pa += map_size;
+		remaining_size -= map_size;
+	}
+}
+
+static void __init setup_vm_final(void)
+{
+	phys_addr_t start, end;
 	u64 i;
 
 	/* Setup swapper PGD for fixmap */
@@ -1012,13 +1067,7 @@ static void __init setup_vm_final(void)
 		if (end >= __pa(PAGE_OFFSET) + memory_limit)
 			end = __pa(PAGE_OFFSET) + memory_limit;
 
-		map_size = best_map_size(start, end - start);
-		for (pa = start; pa < end; pa += map_size) {
-			va = (uintptr_t)__va(pa);
-
-			create_pgd_mapping(swapper_pg_dir, va, pa, map_size,
-					   pgprot_from_va(va));
-		}
+		create_linear_page_table(start, end);
 	}
 
 #ifdef CONFIG_64BIT
