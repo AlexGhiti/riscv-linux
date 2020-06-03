@@ -665,7 +665,7 @@ asmlinkage void __init setup_vm(uintptr_t dtb_pa)
 static void __init setup_vm_final(void)
 {
 	uintptr_t va, map_size;
-	phys_addr_t pa, start, end;
+	phys_addr_t pa, start, end, dram_start;
 	struct memblock_region *reg;
 	static struct vm_struct vm_kernel = { 0 };
 
@@ -676,6 +676,28 @@ static void __init setup_vm_final(void)
 	create_pgd_mapping(swapper_pg_dir, FIXADDR_START,
 			   __pa_symbol(fixmap_pgd_next),
 			   PGDIR_SIZE, PAGE_TABLE);
+
+	/*
+	 * Make sure that virtual and physical addresses are at least aligned
+	 * on PMD_SIZE, even if we have to lose some memory (< PMD_SIZE)
+	 * otherwise the linear mapping would get mapped using PTE entries.
+	 */
+	dram_start = memblock_start_of_DRAM();
+	if (dram_start & (PMD_SIZE - 1)) {
+		uintptr_t next_dram_start;
+
+		next_dram_start	= (dram_start + PMD_SIZE - 1) & ~(PMD_SIZE - 1);
+		memblock_remove(dram_start, next_dram_start - dram_start);
+		dram_start = next_dram_start;
+	}
+
+	/*
+	 * We started considering PAGE_OFFSET would start at load_pa because
+	 * it was the only piece of information we had, but now make PAGE_OFFSET
+	 * point to the real beginning of the memory area.
+	 */
+	va_pa_offset = PAGE_OFFSET - dram_start;
+	pfn_base = PFN_DOWN(dram_start);
 
 	/* Map all memory banks */
 	for_each_memblock(memory, reg) {
