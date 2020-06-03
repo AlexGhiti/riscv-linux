@@ -425,13 +425,29 @@ static void __init create_pgd_mapping(pgd_t *pgdp,
 	create_pgd_next_mapping(nextp, va, pa, sz, prot);
 }
 
-static uintptr_t __init best_map_size(phys_addr_t base, phys_addr_t size)
+static bool is_map_size_ok(uintptr_t map_size, phys_addr_t base,
+			   uintptr_t base_virt, phys_addr_t size)
 {
-	/* Upgrade to PMD_SIZE mappings whenever possible */
-	if ((base & (PMD_SIZE - 1)) || (size & (PMD_SIZE - 1)))
-		return PAGE_SIZE;
+	return !((base & (map_size - 1)) || (base_virt & (map_size - 1)) ||
+			(size < map_size));
+}
 
-	return PMD_SIZE;
+static uintptr_t __init best_map_size(phys_addr_t base, uintptr_t base_virt,
+				      phys_addr_t size)
+{
+#ifndef __PAGETABLE_PMD_FOLDED
+	if (is_map_size_ok(PGDIR_SIZE, base, base_virt, size))
+		return PGDIR_SIZE;
+
+	if (pgtable_l4_enabled)
+		if (is_map_size_ok(PUD_SIZE, base, base_virt, size))
+			return PUD_SIZE;
+#endif
+
+	if (is_map_size_ok(PMD_SIZE, base, base_virt, size))
+		return PMD_SIZE;
+
+	return PAGE_SIZE;
 }
 
 /*
@@ -577,7 +593,7 @@ static void __init create_kernel_page_table(pgd_t *pgdir, uintptr_t map_size)
 asmlinkage void __init setup_vm(uintptr_t dtb_pa)
 {
 	uintptr_t va, end_va;
-	uintptr_t map_size = best_map_size(load_pa, MAX_EARLY_MAPPING_SIZE);
+	uintptr_t map_size;
 
 	load_pa = (uintptr_t)(&_start);
 	load_sz = (uintptr_t)(&_end) - load_pa;
@@ -588,6 +604,7 @@ asmlinkage void __init setup_vm(uintptr_t dtb_pa)
 
 	kernel_virt_addr = KERNEL_VIRT_ADDR;
 
+	map_size = best_map_size(load_pa, PAGE_OFFSET, MAX_EARLY_MAPPING_SIZE);
 	va_pa_offset = PAGE_OFFSET - load_pa;
 	va_kernel_pa_offset = kernel_virt_addr - load_pa;
 	pfn_base = PFN_DOWN(load_pa);
@@ -701,6 +718,8 @@ static void __init setup_vm_final(void)
 
 	/* Map all memory banks */
 	for_each_memblock(memory, reg) {
+		uintptr_t remaining_size;
+
 		start = reg->base;
 		end = start + reg->size;
 
@@ -708,15 +727,19 @@ static void __init setup_vm_final(void)
 			break;
 		if (memblock_is_nomap(reg))
 			continue;
-		if (start <= __pa(PAGE_OFFSET) &&
-		    __pa(PAGE_OFFSET) < end)
-			start = __pa(PAGE_OFFSET);
 
-		map_size = best_map_size(start, end - start);
-		for (pa = start; pa < end; pa += map_size) {
+		pa = start;
+		remaining_size = reg->size;
+
+		while (remaining_size) {
 			va = (uintptr_t)__va(pa);
+			map_size = best_map_size(pa, va, remaining_size);
+
 			create_pgd_mapping(swapper_pg_dir, va, pa,
 					   map_size, PAGE_KERNEL);
+
+			pa += map_size;
+			remaining_size -= map_size;
 		}
 	}
 
