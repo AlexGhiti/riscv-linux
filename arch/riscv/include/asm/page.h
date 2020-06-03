@@ -151,7 +151,7 @@ extern unsigned long kernel_virt_addr;
 	is_linear_mapping(_x) ?							\
 		linear_mapping_va_to_pa(_x) : kernel_mapping_va_to_pa(_x);	\
 	})
-#else
+#else /* CONFIG_64BIT */
 #define is_kernel_mapping(x)	\
 	((x) >= kernel_virt_addr && (x) < (kernel_virt_addr + load_sz))
 #define is_linear_mapping(x)	\
@@ -159,7 +159,7 @@ extern unsigned long kernel_virt_addr;
 
 #define __pa_to_va_nodebug(x)  ((void *)((unsigned long) (x) + va_pa_offset))
 #define __va_to_pa_nodebug(x)  ((unsigned long)(x) - va_pa_offset)
-#endif
+#endif /* CONFIG_64BIT */
 
 #ifdef CONFIG_DEBUG_VIRTUAL
 extern phys_addr_t __virt_to_phys(unsigned long x);
