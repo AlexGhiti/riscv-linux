@@ -59,22 +59,15 @@ relocate:
 	add a2, a2, a1
 	csrw CSR_TVEC, a2
 
-	/* Compute satp for kernel page tables, but don't load it yet */
+	/* Compute satp for kernel page tables */
 	srl a2, a0, PAGE_SHIFT
 	li a1, SATP_MODE
 	or a2, a2, a1
 
-	/*
-	 * Load trampoline page directory, which will cause us to trap to
-	 * stvec if VA != PA, or simply fall through if VA == PA.  We need a
-	 * full fence here because setup_vm() just wrote these PTEs and we need
-	 * to ensure the new translations are in use.
-	 */
-	la a0, trampoline_pg_dir
-	srl a0, a0, PAGE_SHIFT
-	or a0, a0, a1
+	/* Switch to kernel page tables. */
 	sfence.vma
-	csrw CSR_SATP, a0
+	csrw CSR_SATP, a2
+
 .align 2
 1:
 	/* Set trap vector to spin forever to help debug */
@@ -86,15 +79,6 @@ relocate:
 .option norelax
 	la gp, __global_pointer$
 .option pop
-
-	/*
-	 * Switch to kernel page tables.  A full fence is necessary in order to
-	 * avoid using the trampoline translations, which are only correct for
-	 * the first superpage.  Fetching the fence is guarnteed to work
-	 * because that first superpage is translated the same way.
-	 */
-	csrw CSR_SATP, a2
-	sfence.vma
 
 	ret
 #endif /* CONFIG_MMU */
