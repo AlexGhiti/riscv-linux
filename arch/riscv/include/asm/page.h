@@ -144,6 +144,7 @@ extern phys_addr_t __phys_addr_symbol(unsigned long x);
 
 #define __pa_symbol(x)	__phys_addr_symbol(RELOC_HIDE((unsigned long)(x), 0))
 #define __pa(x)		__virt_to_phys((unsigned long)(x))
+//#define __va(x)		({ pr_info("%s:%d\n", __FILE__, __LINE__); ((void *)__pa_to_va_nodebug((phys_addr_t)(x))); })
 #define __va(x)		((void *)__pa_to_va_nodebug((phys_addr_t)(x)))
 
 #define phys_to_pfn(phys)	(PFN_DOWN(phys))
