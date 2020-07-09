@@ -27,9 +27,13 @@
 #include "../kernel/head.h"
 
 #ifdef CONFIG_64BIT
-u64 satp_mode = IS_ENABLED(CONFIG_MAXPHYSMEM_2GB) ?
-				SATP_MODE_39 : SATP_MODE_48;
-bool pgtable_l4_enabled = IS_ENABLED(CONFIG_MAXPHYSMEM_2GB) ? false : true;
+#if CONFIG_PGTABLE_LEVELS == 4
+u64 satp_mode = SATP_MODE_48;
+bool pgtable_l4_enabled = true;
+#else
+u64 satp_mode = SATP_MODE_39;
+bool pgtable_l4_enabled;
+#endif
 #else
 u64 satp_mode = SATP_MODE_32;
 bool pgtable_l4_enabled;
@@ -269,13 +273,14 @@ static void __init create_pte_mapping(pte_t *ptep,
 }
 
 #ifndef __PAGETABLE_PMD_FOLDED
-
+#if CONFIG_PGTABLE_LEVELS == 4
 pud_t trampoline_pud[PTRS_PER_PUD] __page_aligned_bss;
-pmd_t trampoline_pmd[PTRS_PER_PMD] __page_aligned_bss;
 pud_t fixmap_pud[PTRS_PER_PUD] __page_aligned_bss;
+pud_t early_pud[PTRS_PER_PUD] __initdata __aligned(PAGE_SIZE);
+#endif
+pmd_t trampoline_pmd[PTRS_PER_PMD] __page_aligned_bss;
 pmd_t fixmap_pmd[PTRS_PER_PMD] __page_aligned_bss;
 pmd_t early_pmd[PTRS_PER_PMD] __initdata __aligned(PAGE_SIZE);
-pud_t early_pud[PTRS_PER_PUD] __initdata __aligned(PAGE_SIZE);
 
 static pmd_t *__init get_pmd_virt(phys_addr_t pa)
 {
@@ -325,6 +330,7 @@ static void __init create_pmd_mapping(pmd_t *pmdp,
 	create_pte_mapping(ptep, va, pa, sz, prot);
 }
 
+#if CONFIG_PGTABLE_LEVELS == 4
 static pud_t *__init get_pud_virt(phys_addr_t pa)
 {
 	if (mmu_enabled) {
@@ -372,7 +378,9 @@ static void __init create_pud_mapping(pud_t *pudp,
 
 	create_pmd_mapping(nextp, va, pa, sz, prot);
 }
+#endif
 
+#if CONFIG_PGTABLE_LEVELS == 4
 #define pgd_next_t		pud_t
 #define alloc_pgd_next(__va)	alloc_pud(__va)
 #define get_pgd_next_virt(__pa)	get_pud_virt(__pa)
@@ -382,6 +390,15 @@ static void __init create_pud_mapping(pud_t *pudp,
 			(uintptr_t)fixmap_pud : (uintptr_t)fixmap_pmd)
 #define trampoline_pgd_next	(pgtable_l4_enabled ?			\
 			(uintptr_t)trampoline_pud : (uintptr_t)trampoline_pmd)
+#else
+#define pgd_next_t		pmd_t
+#define alloc_pgd_next(__va)	alloc_pmd(__va)
+#define get_pgd_next_virt(__pa)	get_pmd_virt(__pa)
+#define create_pgd_next_mapping(__nextp, __va, __pa, __sz, __prot)	\
+	create_pmd_mapping(__nextp, __va, __pa, __sz, __prot)
+#define fixmap_pgd_next (uintptr_t)fixmap_pmd
+#define trampoline_pgd_next (uintptr_t)trampoline_pmd
+#endif /* CONFIG_PGTABLE_LEVELS == 4 */
 #else
 #define pgd_next_t		pte_t
 #define alloc_pgd_next(__va)	alloc_pte(__va)
@@ -513,7 +530,7 @@ void __init relocate_kernel(uintptr_t load_pa)
 	}
 }
 
-#if defined(CONFIG_64BIT) && !defined(CONFIG_MAXPHYSMEM_2GB)
+#ifdef CONFIG_SUPPORT_LOWER_PAGE_TABLE_LEVELS
 void disable_pgtable_l4(void)
 {
 	pgtable_l4_enabled = false;
@@ -598,7 +615,7 @@ asmlinkage void __init setup_vm(uintptr_t dtb_pa)
 	load_pa = (uintptr_t)(&_start);
 	load_sz = (uintptr_t)(&_end) - load_pa;
 
-#if defined(CONFIG_64BIT) && !defined(CONFIG_MAXPHYSMEM_2GB)
+#ifdef CONFIG_SUPPORT_LOWER_PAGE_TABLE_LEVELS
 	set_satp_mode(load_pa, dtb_pa);
 #endif
 

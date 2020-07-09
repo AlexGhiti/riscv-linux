@@ -115,7 +115,8 @@ config PAGE_OFFSET
 	default 0xC0000000 if 32BIT && MAXPHYSMEM_2GB
 	default 0x80000000 if 64BIT && !MMU
 	default 0xffffffff80000000 if 64BIT && MAXPHYSMEM_2GB
-	default 0xffffc00000000000 if 64BIT && !MAXPHYSMEM_2GB
+	default 0xffffffe000000000 if PGTABLE_LEVELS = 3 
+	default 0xffffc00000000000 if PGTABLE_LEVELS = 4 
 
 config ARCH_FLATMEM_ENABLE
 	def_bool y
@@ -164,13 +165,24 @@ config GENERIC_HWEIGHT
 config FIX_EARLYCON_MEM
 	def_bool MMU
 
-# On a 64BIT relocatable kernel, the 4-level page table is at runtime folded
-# on a 3-level page table when sv48 is not supported.
+config SUPPORT_LOWER_PAGE_TABLE_LEVELS
+	bool "Runtime support for SV39 and SV48 kernels"
+	depends on PGTABLE_LEVELS = 4 && RELOCATABLE
+	default y
+	help
+          If enabled, this config allows the kernel to support SV39 and SV48
+          hardwares by folding the 4th level of the page table at runtime.
+
 config PGTABLE_LEVELS
-	int
-	default 4 if 64BIT && RELOCATABLE
+	int "Select the number of page table levels"
+	default 4 if 64BIT && !MAXPHYSMEM_2GB
 	default 3 if 64BIT
 	default 2
+	help
+	  Defines the number of page-table levels:
+	    - 4 is for SV48 support
+	    - 3 is for SV39 support
+	    - 2 is for SV32 support
 
 config RELOCATABLE
 	bool
