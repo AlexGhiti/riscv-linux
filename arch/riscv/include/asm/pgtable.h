@@ -12,7 +12,7 @@
 #include <asm/pgtable-bits.h>
 
 #ifndef CONFIG_MMU
-#define KERNEL_VIRT_ADDR	PAGE_OFFSET
+#define KERNEL_VIRT_ADDR	(PAGE_OFFSET + 0x200000)
 #define KERNEL_LINK_ADDR	PAGE_OFFSET
 #else
 /*
