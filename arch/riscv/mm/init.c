@@ -161,8 +161,6 @@ void __init setup_bootmem(void)
 {
 	phys_addr_t mem_start = 0;
 	phys_addr_t start, dram_end, end = 0;
-	phys_addr_t vmlinux_end = __pa_symbol(&_end);
-	phys_addr_t vmlinux_start = __pa_symbol(&_start);
 	phys_addr_t max_mapped_addr = __pa(~(ulong)0);
 	u64 i;
 
@@ -171,7 +169,7 @@ void __init setup_bootmem(void)
 		phys_addr_t size = end - start;
 		if (!mem_start)
 			mem_start = start;
-		if (start <= vmlinux_start && vmlinux_end <= end)
+		if (start <= load_pa && (load_pa + load_sz) <= end)
 			BUG_ON(size == 0);
 	}
 
@@ -182,8 +180,13 @@ void __init setup_bootmem(void)
 	 */
 	memblock_enforce_memory_limit(-PAGE_OFFSET);
 
-	/* Reserve from the start of the kernel to the end of the kernel */
-	memblock_reserve(vmlinux_start, vmlinux_end - vmlinux_start);
+	/*
+	 * Reserve from the start of the kernel to the end of the kernel
+	 * and make sure we align the reservation on PMD_SIZE since we will
+	 * map the kernel in the linear mapping as read-only: we do not want
+	 * any allocation to happen between _end and the next pmd aligned page.
+	 */
+	memblock_reserve(load_pa, (load_sz + PMD_SIZE - 1) & ~(PMD_SIZE - 1));
 
 	dram_end = memblock_end_of_DRAM();
 
@@ -454,7 +457,9 @@ static uintptr_t __init best_map_size(phys_addr_t base, phys_addr_t size)
 #error "setup_vm() is called from head.S before relocate so it should not use absolute addressing."
 #endif
 
-static uintptr_t load_pa, load_sz;
+uintptr_t load_pa, load_sz;
+EXPORT_SYMBOL(load_pa);
+EXPORT_SYMBOL(load_sz);
 
 static void __init create_kernel_page_table(pgd_t *pgdir, uintptr_t map_size)
 {
@@ -612,9 +617,17 @@ static void __init setup_vm_final(void)
 
 		map_size = best_map_size(start, end - start);
 		for (pa = start; pa < end; pa += map_size) {
-			va = (uintptr_t)__va(pa);
+			pgprot_t prot = PAGE_KERNEL;
+
+			/* Protect the kernel mapping that lies in the linear mapping */
+			if (pa >= __pa(_start) && pa < __pa(_end))
+				prot = PAGE_KERNEL_READ;
+
+			/* Make sure we get virtual addresses in the linear mapping */
+			va = (uintptr_t)linear_mapping_pa_to_va(pa);
+
 			create_pgd_mapping(swapper_pg_dir, va, pa,
-					   map_size, PAGE_KERNEL);
+					   map_size, prot);
 		}
 	}
 

@@ -102,8 +102,15 @@ extern unsigned long pfn_base;
 extern unsigned long max_low_pfn;
 extern unsigned long min_low_pfn;
 extern unsigned long kernel_virt_addr;
+extern uintptr_t load_pa, load_sz;
 
-#define __pa_to_va_nodebug(x)	((void *)((unsigned long) (x) + va_pa_offset))
+#define linear_mapping_pa_to_va(x)	((void *)((unsigned long)(x) + va_pa_offset))
+#define kernel_mapping_pa_to_va(x)	\
+	((void *)((unsigned long) (x) + va_kernel_pa_offset))
+#define __pa_to_va_nodebug(x)				\
+	((x >= load_pa && x < load_pa + load_sz) ?	\
+		kernel_mapping_pa_to_va(x): linear_mapping_pa_to_va(x))
+
 #define linear_mapping_va_to_pa(x)	((unsigned long)(x) - va_pa_offset)
 #define kernel_mapping_va_to_pa(x)	\
 	((unsigned long)(x) - va_kernel_pa_offset)
