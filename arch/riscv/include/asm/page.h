@@ -119,9 +119,9 @@ extern uintptr_t load_pa, load_sz;
 #define linear_mapping_pa_to_va(x)	((void *)((unsigned long)(x) + va_pa_offset))
 #define kernel_mapping_pa_to_va(x)	\
 	((void *)((unsigned long) (x) + va_kernel_pa_offset))
-#define __pa_to_va_nodebug(x)				\
-	((x >= load_pa && x < load_pa + load_sz) ?	\
-		kernel_mapping_pa_to_va(x): linear_mapping_pa_to_va(x))
+// TODO ALEX this breaks lm_alias which intends to give any kernel symbol its
+// va in linear mapping
+#define __pa_to_va_nodebug(x)		linear_mapping_pa_to_va(x)
 
 #define linear_mapping_va_to_pa(x)	((unsigned long)(x) - va_pa_offset)
 #define kernel_mapping_va_to_pa(x)	\

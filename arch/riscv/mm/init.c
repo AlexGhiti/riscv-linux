@@ -235,6 +235,7 @@ void __init setup_bootmem(void)
 	 * map the kernel in the linear mapping as read-only: we do not want
 	 * any allocation to happen between _end and the next pmd aligned page.
 	 */
+	// TODO ALEX the ~(PMD_SIZE - 1) is wrong ! either -1 or ~, but not both
 	memblock_reserve(load_pa, (load_sz + PMD_SIZE - 1) & ~(PMD_SIZE - 1));
 
 	dram_end = memblock_end_of_DRAM();
@@ -648,6 +649,7 @@ asmlinkage void __init setup_vm(uintptr_t dtb_pa)
 #ifndef __PAGETABLE_PMD_FOLDED
 	pmd_t fix_bmap_spmd, fix_bmap_epmd;
 #endif
+	int i;
 
 	load_pa = (uintptr_t)(&_start);
 	load_sz = (uintptr_t)(&_end) - load_pa;
@@ -701,8 +703,12 @@ asmlinkage void __init setup_vm(uintptr_t dtb_pa)
 	if (pgtable_l4_enabled)
 		create_pud_mapping(trampoline_pud, kernel_virt_addr,
 			   (uintptr_t)trampoline_pmd, PUD_SIZE, PAGE_TABLE);
-	create_pmd_mapping(trampoline_pmd, kernel_virt_addr,
-			   load_pa, PMD_SIZE, PAGE_KERNEL_EXEC);
+	for (i = 0; i < load_sz / PMD_SIZE + 1; ++i) {
+		create_pmd_mapping(trampoline_pmd,
+				kernel_virt_addr + i * PMD_SIZE,
+				load_pa + i * PMD_SIZE,
+				PMD_SIZE, PAGE_KERNEL_EXEC);
+	}
 #else
 	/* Setup trampoline PGD */
 	create_pgd_mapping(trampoline_pg_dir, kernel_virt_addr,
@@ -809,8 +815,9 @@ static void __init setup_vm_final(void)
 			pgprot_t prot = PAGE_KERNEL;
 
 			/* Protect the kernel mapping that lies in the linear mapping */
-			if (pa >= __pa(_start) && pa < __pa(_end))
-				prot = PAGE_KERNEL_READ;
+			// TODO ALEX: that should be __pa_symbol(&_start) etc
+			//if (pa >= __pa(_start) && pa < __pa(_end))
+			//	prot = PAGE_KERNEL_READ;
 
 			/* Make sure we get virtual addresses in the linear mapping */
 			va = (uintptr_t)linear_mapping_pa_to_va(pa);
