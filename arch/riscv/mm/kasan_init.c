@@ -77,35 +77,43 @@ static void __init populate(void *start, void *end)
 
 	for (i = 0; i < n_pages; i++) {
 		phys_addr_t phys = memblock_phys_alloc(PAGE_SIZE, PAGE_SIZE);
+		if (!phys) {
+			BUG_ON(1);
+		}
 		set_pte(&pte[i], pfn_pte(PHYS_PFN(phys), PAGE_KERNEL));
 	}
 
-	for (i = 0, offset = 0; i < n_ptes; i++, offset += PTRS_PER_PTE)
-		set_pmd(&pmd[i],
+	for (i = 0, offset = 0; i < n_ptes; i++, offset += PTRS_PER_PTE) {
+		pmd_t *pmd_off = pmd + pmd_index(vaddr + i * PMD_SIZE);
+		set_pmd(pmd_off,
 			pfn_pmd(PFN_DOWN(__pa(&pte[offset])),
 				__pgprot(_PAGE_TABLE)));
+	}
 
 	if (pgtable_l4_enabled) {
 		unsigned long n_puds =
 			((n_pmds + PTRS_PER_PUD) & -PTRS_PER_PUD) / PTRS_PER_PUD;
-		pud_t *pud =
-			memblock_alloc(n_puds * PTRS_PER_PUD * sizeof(pud_t), PAGE_SIZE);
+		pud_t *pud = memblock_alloc(n_puds * PTRS_PER_PUD * sizeof(pud_t), PAGE_SIZE);
 
-		for (i = 0, offset = 0; i < n_pmds; i++, offset += PTRS_PER_PMD)
-			set_pud(&pud[i],
+		for (i = 0, offset = 0; i < n_pmds; i++, offset += PTRS_PER_PMD) {
+			pud_t *pud_off = pud + pud_index(vaddr + i * PUD_SIZE);
+			set_pud(pud_off,
 					pfn_pud(PFN_DOWN(__pa(&pmd[offset])),
 						__pgprot(_PAGE_TABLE)));
+		}
 
-		for (i = 0, offset = 0; i < n_puds; i++, offset += PTRS_PER_PUD)
+		for (i = 0, offset = 0; i < n_puds; i++, offset += PTRS_PER_PUD) {
 			set_pgd(&pgd[i],
 					pfn_pgd(PFN_DOWN(__pa(&pud[offset])),
 						__pgprot(_PAGE_TABLE)));
+		}
 
 	} else {
-		for (i = 0, offset = 0; i < n_pmds; i++, offset += PTRS_PER_PMD)
+		for (i = 0, offset = 0; i < n_pmds; i++, offset += PTRS_PER_PMD) {
 			set_pgd(&pgd[i],
 					pfn_pgd(PFN_DOWN(__pa(&pmd[offset])),
 						__pgprot(_PAGE_TABLE)));
+		}
 	}
 
 	local_flush_tlb_all();
@@ -117,10 +125,15 @@ void __init kasan_init(void)
 	phys_addr_t _start, _end;
 	u64 i;
 
+	/*
+	 * Populate all kernel virtual address space with kasan_early_shadow_page
+	 * except for the linear mapping and the kernel mapping.
+	 */
 	kasan_populate_early_shadow((void *)KASAN_SHADOW_START,
 				    (void *)kasan_mem_to_shadow((void *)
 								VMALLOC_END));
 
+	/* Populate the linear mapping */
 	for_each_mem_range(i, &_start, &_end) {
 		void *start = (void *)__va(_start);
 		void *end = (void *)__va(_end);
@@ -129,7 +142,18 @@ void __init kasan_init(void)
 			break;
 
 		populate(kasan_mem_to_shadow(start), kasan_mem_to_shadow(end));
+		// TOOD exclude [load_pa; load_pa + load_sz] from here since
+		// it is read only !
 	};
+
+	/*
+	 * TODO: Populate kernel mapping that lies in the linear mapping: this one
+	 * is read-only so we can use kasan_early_shadow_page
+	 */
+
+	/* Populate kernel mapping */
+	populate((void *)kasan_mem_to_shadow(KERNEL_LINK_ADDR),
+			(void *)kasan_mem_to_shadow(KERNEL_LINK_ADDR + load_sz));
 
 	for (i = 0; i < PTRS_PER_PTE; i++)
 		set_pte(&kasan_early_shadow_pte[i],
