@@ -152,8 +152,8 @@ void __init kasan_init(void)
 	 */
 
 	/* Populate kernel mapping */
-	populate((void *)kasan_mem_to_shadow(KERNEL_LINK_ADDR),
-			(void *)kasan_mem_to_shadow(KERNEL_LINK_ADDR + load_sz));
+	populate(kasan_mem_to_shadow((const void *)KERNEL_LINK_ADDR),
+			kasan_mem_to_shadow((const void *)(KERNEL_LINK_ADDR + load_sz)));
 
 	for (i = 0; i < PTRS_PER_PTE; i++)
 		set_pte(&kasan_early_shadow_pte[i],
