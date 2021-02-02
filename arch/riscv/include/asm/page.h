@@ -114,7 +114,7 @@ extern unsigned long kernel_virt_addr;
 #ifdef CONFIG_64BIT
 extern unsigned long __page_offset;
 #endif
-extern uintptr_t load_pa, load_sz;
+extern uintptr_t load_pa, load_sz, load_sz_pmd;
 
 #define linear_mapping_pa_to_va(x)	((void *)((unsigned long)(x) + va_pa_offset))
 #define kernel_mapping_pa_to_va(x)	\

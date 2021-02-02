@@ -235,8 +235,7 @@ void __init setup_bootmem(void)
 	 * map the kernel in the linear mapping as read-only: we do not want
 	 * any allocation to happen between _end and the next pmd aligned page.
 	 */
-	// TODO ALEX the ~(PMD_SIZE - 1) is wrong ! either -1 or ~, but not both
-	memblock_reserve(load_pa, (load_sz + PMD_SIZE - 1) & ~(PMD_SIZE - 1));
+	memblock_reserve(load_pa, load_sz_pmd);
 
 	dram_end = memblock_end_of_DRAM();
 
@@ -581,9 +580,10 @@ static uintptr_t __init best_map_size(phys_addr_t base, phys_addr_t size)
 #error "setup_vm() is called from head.S before relocate so it should not use absolute addressing."
 #endif
 
-uintptr_t load_pa, load_sz;
+uintptr_t load_pa, load_sz, load_sz_pmd;
 EXPORT_SYMBOL(load_pa);
 EXPORT_SYMBOL(load_sz);
+EXPORT_SYMBOL(load_sz_pmd);
 
 #if defined(CONFIG_64BIT) && !defined(CONFIG_MAXPHYSMEM_2GB)
 void disable_pgtable_l4(void)
@@ -608,7 +608,7 @@ asmlinkage __init void set_satp_mode(uintptr_t load_pa)
 			PGDIR_SIZE, PAGE_TABLE);
 	create_pud_mapping(early_pud, load_pa, (uintptr_t)early_pmd,
 			PUD_SIZE, PAGE_TABLE);
-	for (i = 0; i < load_sz / PMD_SIZE + 1; ++i) {
+	for (i = 0; i < load_sz_pmd / PMD_SIZE; ++i) {
 		create_pmd_mapping(early_pmd,
 				load_pa + i * PMD_SIZE, load_pa + i * PMD_SIZE,
 				PMD_SIZE, PAGE_KERNEL_EXEC);
@@ -653,6 +653,7 @@ asmlinkage void __init setup_vm(uintptr_t dtb_pa)
 
 	load_pa = (uintptr_t)(&_start);
 	load_sz = (uintptr_t)(&_end) - load_pa;
+	load_sz_pmd = (load_sz + PMD_SIZE - 1) & PMD_MASK;
 	map_size = best_map_size(load_pa, MAX_EARLY_MAPPING_SIZE);
 
 	pt_ops.alloc_pte = alloc_pte_early;
@@ -703,7 +704,7 @@ asmlinkage void __init setup_vm(uintptr_t dtb_pa)
 	if (pgtable_l4_enabled)
 		create_pud_mapping(trampoline_pud, kernel_virt_addr,
 			   (uintptr_t)trampoline_pmd, PUD_SIZE, PAGE_TABLE);
-	for (i = 0; i < load_sz / PMD_SIZE + 1; ++i) {
+	for (i = 0; i < load_sz_pmd / PMD_SIZE; ++i) {
 		create_pmd_mapping(trampoline_pmd,
 				kernel_virt_addr + i * PMD_SIZE,
 				load_pa + i * PMD_SIZE,
@@ -833,7 +834,7 @@ static void __init setup_vm_final(void)
 	/* Reserve the vmalloc area occupied by the kernel */
 	vm_kernel.addr = (void *)kernel_virt_addr;
 	vm_kernel.phys_addr = load_pa;
-	vm_kernel.size = (load_sz + PMD_SIZE - 1) & ~(PMD_SIZE - 1);
+	vm_kernel.size = load_sz_pmd;
 	vm_kernel.flags = VM_MAP | VM_NO_GUARD;
 	vm_kernel.caller = __builtin_return_address(0);
 
