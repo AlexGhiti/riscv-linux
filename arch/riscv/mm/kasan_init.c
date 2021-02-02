@@ -61,14 +61,17 @@ asmlinkage void __init kasan_early_init(void)
 static void kasan_populate_pte(pmd_t *pmd, unsigned long vaddr, unsigned long end)
 {
 	phys_addr_t phys_addr;
-	pte_t *ptep = memblock_alloc(PTRS_PER_PTE * sizeof(pte_t), PAGE_SIZE);
+	pte_t *ptep = memblock_alloc(PTRS_PER_PTE * sizeof(pte_t), PAGE_SIZE), *tmp_ptep;
+
+	tmp_ptep = ptep;
+	ptep += pte_index(vaddr);
 
 	do {
 		phys_addr = memblock_phys_alloc(PAGE_SIZE, PAGE_SIZE);
 		set_pte(ptep, pfn_pte(PFN_DOWN(phys_addr), PAGE_KERNEL));
 	} while (ptep++, vaddr += PAGE_SIZE, vaddr != end);
 
-	set_pmd(pmd, pfn_pmd(PFN_DOWN(__pa(ptep)), PAGE_TABLE));
+	set_pmd(pmd, pfn_pmd(PFN_DOWN(__pa(tmp_ptep)), PAGE_TABLE));
 }
 
 //#define kasan_populate_pgd_next(pte, vaddr, end)				\
@@ -78,8 +81,11 @@ static void kasan_populate_pte(pmd_t *pmd, unsigned long vaddr, unsigned long en
 static void kasan_populate_pmd(pud_t *pud, unsigned long vaddr, unsigned long end)
 {
 	phys_addr_t phys_addr;
-	pmd_t *pmdp = memblock_alloc(PTRS_PER_PMD * sizeof(pmd_t), PAGE_SIZE);
+	pmd_t *pmdp = memblock_alloc(PTRS_PER_PMD * sizeof(pmd_t), PAGE_SIZE), *tmp_pmdp;
 	unsigned long next;
+
+	tmp_pmdp = pmdp;
+	pmdp += pmd_index(vaddr);
 
 	do {
 		next = pmd_addr_end(vaddr, end);
@@ -92,7 +98,7 @@ static void kasan_populate_pmd(pud_t *pud, unsigned long vaddr, unsigned long en
 			}
 		}
 
-		kasan_populate_pte(pmdp, vaddr, end);
+		kasan_populate_pte(pmdp, vaddr, next);
 	} while (pmdp++, vaddr = next, vaddr != end);
 
 	/*
@@ -101,14 +107,22 @@ static void kasan_populate_pmd(pud_t *pud, unsigned long vaddr, unsigned long en
 	 * it entirely, memblock could allocate a page at a physical address
 	 * where KASAN is not populated yet and then we'd get a page fault.
 	 */
-	set_pud(pud, pfn_pud(PFN_DOWN(__pa(pmdp)), PAGE_TABLE));
+	set_pud(pud, pfn_pud(PFN_DOWN(__pa(tmp_pmdp)), PAGE_TABLE));
 }
 
 static void kasan_populate_pud(pgd_t *pgd, unsigned long vaddr, unsigned long end)
 {
 	phys_addr_t phys_addr;
-	pud_t *pudp = memblock_alloc(PTRS_PER_PUD * sizeof(pud_t), PAGE_SIZE);
+	pud_t *pudp, *tmp_pudp;
 	unsigned long next;
+
+
+	//if (pud_none(*tmp_pudp)) {
+		pudp = memblock_alloc(PTRS_PER_PUD * sizeof(pud_t), PAGE_SIZE);
+		tmp_pudp = pudp;
+		pudp += pud_index(vaddr);
+	//} else
+	//	pudp = tmp_pudp;
 
 	do {
 		next = pud_addr_end(vaddr, end);
@@ -121,7 +135,7 @@ static void kasan_populate_pud(pgd_t *pgd, unsigned long vaddr, unsigned long en
 			}
 		}
 
-		kasan_populate_pmd(pudp, vaddr, end);
+		kasan_populate_pmd(pudp, vaddr, next);
 	} while (pudp++, vaddr = next, vaddr != end);
 
 	/*
@@ -130,7 +144,7 @@ static void kasan_populate_pud(pgd_t *pgd, unsigned long vaddr, unsigned long en
 	 * it entirely, memblock could allocate a page at a physical address
 	 * where KASAN is not populated yet and then we'd get a page fault.
 	 */
-	set_pgd(pgd, pfn_pgd(PFN_DOWN(__pa(pudp)), PAGE_TABLE));
+	set_pgd(pgd, pfn_pgd(PFN_DOWN(__pa(tmp_pudp)), PAGE_TABLE));
 }
 
 static void kasan_populate_pgd(unsigned long vaddr, unsigned long end)
@@ -138,6 +152,8 @@ static void kasan_populate_pgd(unsigned long vaddr, unsigned long end)
 	phys_addr_t phys_addr;
 	pgd_t *pgdp = pgd_offset_k(vaddr);
 	unsigned long next;
+
+	printk(KERN_ERR "pgdp = %lx\n", (unsigned long)pgdp);
 
 	do {
 		next = pgd_addr_end(vaddr, end);
@@ -150,7 +166,7 @@ static void kasan_populate_pgd(unsigned long vaddr, unsigned long end)
 			}
 		}
 
-		kasan_populate_pud(pgdp, vaddr, end);
+		kasan_populate_pud(pgdp, vaddr, next);
 	} while (pgdp++, vaddr = next, vaddr != end);
 }
 
