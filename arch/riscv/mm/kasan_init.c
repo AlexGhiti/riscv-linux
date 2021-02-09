@@ -13,6 +13,9 @@
 #define kasan_early_shadow_pgd_next (pgtable_l4_enabled ?	\
 		(uintptr_t)kasan_early_shadow_pud: (uintptr_t)kasan_early_shadow_pmd)
 
+#define kasan_populate_pgd_next(pte, vaddr, end) (pgtable_l4_enabled ?	\
+		kasan_populate_pud(pte, vaddr, end): kasan_populate_pmd((pud_t *)pte, vaddr, end))
+
 extern pgd_t early_pg_dir[PTRS_PER_PGD];
 asmlinkage void __init kasan_early_init(void)
 {
@@ -80,15 +83,22 @@ static void kasan_populate_pte(pmd_t *pmd, unsigned long vaddr, unsigned long en
 	set_pmd(pmd, pfn_pmd(PFN_DOWN(__pa(base_pte)), PAGE_TABLE));
 }
 
-static void kasan_populate_pmd(pgd_t *pgd, unsigned long vaddr, unsigned long end)
+static void kasan_populate_pmd(pud_t *pud, unsigned long vaddr, unsigned long end)
 {
 	phys_addr_t phys_addr;
 	pmd_t *pmdp, *base_pmd;
 	unsigned long next;
 
-	base_pmd = (pmd_t *)pgd_page_vaddr(*pgd);
-	if (base_pmd == lm_alias(kasan_early_shadow_pmd))
-		base_pmd = memblock_alloc(PTRS_PER_PMD * sizeof(pmd_t), PAGE_SIZE);
+	if (pgtable_l4_enabled) {
+		if (pud_none(*pud))
+			base_pmd = memblock_alloc(PTRS_PER_PMD * sizeof(pmd_t), PAGE_SIZE);
+		else
+			base_pmd = (pmd_t *)pud_page_vaddr(*pud);
+	} else {
+		base_pmd = (pmd_t *)pgd_page_vaddr(*(pgd_t *)pud);
+		if (base_pmd == lm_alias(kasan_early_shadow_pmd))
+			base_pmd = memblock_alloc(PTRS_PER_PMD * sizeof(pud_t), PAGE_SIZE);
+	}
 
 	pmdp = base_pmd + pmd_index(vaddr);
 
@@ -106,13 +116,45 @@ static void kasan_populate_pmd(pgd_t *pgd, unsigned long vaddr, unsigned long en
 		kasan_populate_pte(pmdp, vaddr, next);
 	} while (pmdp++, vaddr = next, vaddr != end);
 
+	if (pgtable_l4_enabled)
+		set_pud(pud, pfn_pud(PFN_DOWN(__pa(base_pmd)), PAGE_TABLE));
+	else
+		set_pgd((pgd_t *)pud, pfn_pgd(PFN_DOWN(__pa(base_pmd)), PAGE_TABLE));
+}
+
+static void kasan_populate_pud(pgd_t *pgd, unsigned long vaddr, unsigned long end)
+{
+	phys_addr_t phys_addr;
+	pud_t *pudp, *base_pud;
+	unsigned long next;
+
+	base_pud = (pud_t *)pgd_page_vaddr(*pgd);
+	if (base_pud == lm_alias(kasan_early_shadow_pud))
+		base_pud = memblock_alloc(PTRS_PER_PUD * sizeof(pud_t), PAGE_SIZE);
+
+	pudp = base_pud + pud_index(vaddr);
+
+	do {
+		next = pud_addr_end(vaddr, end);
+
+		if (pud_none(*pudp) && IS_ALIGNED(vaddr, PUD_SIZE) && (next - vaddr) >= PUD_SIZE) {
+			phys_addr = memblock_phys_alloc(PUD_SIZE, PUD_SIZE);
+			if (phys_addr) {
+				set_pud(pudp, pfn_pud(PFN_DOWN(phys_addr), PAGE_KERNEL));
+				continue;
+			}
+		}
+
+		kasan_populate_pmd(pudp, vaddr, next);
+	} while (pudp++, vaddr = next, vaddr != end);
+
 	/*
 	 * Wait for the whole PGD to be populated before setting the PGD in
 	 * the page table, otherwise, if we did set the PGD before populating
 	 * it entirely, memblock could allocate a page at a physical address
 	 * where KASAN is not populated yet and then we'd get a page fault.
 	 */
-	set_pgd(pgd, pfn_pgd(PFN_DOWN(__pa(base_pmd)), PAGE_TABLE));
+	set_pgd(pgd, pfn_pgd(PFN_DOWN(__pa(base_pud)), PAGE_TABLE));
 }
 
 static void kasan_populate_pgd(unsigned long vaddr, unsigned long end)
@@ -129,7 +171,7 @@ static void kasan_populate_pgd(unsigned long vaddr, unsigned long end)
 		 * shadow region with kasan_early_shadow_pmd: if this is stillthe case,
 		 * that means we can try to allocate a hugepage as a replacement.
 		 */
-		if (pgd_page_vaddr(*pgdp) == (unsigned long)lm_alias(kasan_early_shadow_pmd) &&
+		if (pgd_page_vaddr(*pgdp) == (unsigned long)lm_alias(kasan_early_shadow_pgd_next) &&
 		    IS_ALIGNED(vaddr, PGDIR_SIZE) && (next - vaddr) >= PGDIR_SIZE) {
 			phys_addr = memblock_phys_alloc(PGDIR_SIZE, PGDIR_SIZE);
 			if (phys_addr) {
@@ -138,7 +180,7 @@ static void kasan_populate_pgd(unsigned long vaddr, unsigned long end)
 			}
 		}
 
-		kasan_populate_pmd(pgdp, vaddr, next);
+		kasan_populate_pgd_next(pgdp, vaddr, next);
 	} while (pgdp++, vaddr = next, vaddr != end);
 }
 
