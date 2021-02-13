@@ -651,6 +651,7 @@ asmlinkage void __init setup_vm(uintptr_t dtb_pa)
 #ifndef __PAGETABLE_PMD_FOLDED
 	pmd_t fix_bmap_spmd, fix_bmap_epmd;
 #endif
+	int i;
 
 	load_pa = (uintptr_t)(&_start);
 	load_sz = (uintptr_t)(&_end) - load_pa;
@@ -705,8 +706,12 @@ asmlinkage void __init setup_vm(uintptr_t dtb_pa)
 	if (pgtable_l4_enabled)
 		create_pud_mapping(trampoline_pud, kernel_virt_addr,
 			   (uintptr_t)trampoline_pmd, PUD_SIZE, PAGE_TABLE);
-	create_pmd_mapping(trampoline_pmd, kernel_virt_addr,
-			   load_pa, PMD_SIZE, PAGE_KERNEL_EXEC);
+	for (i = 0; i < load_sz_pmd / PMD_SIZE; ++i) {
+		create_pmd_mapping(trampoline_pmd,
+				kernel_virt_addr + i * PMD_SIZE,
+				load_pa + i * PMD_SIZE,
+				PMD_SIZE, PAGE_KERNEL_EXEC);
+	}
 #else
 	/* Setup trampoline PGD */
 	create_pgd_mapping(trampoline_pg_dir, kernel_virt_addr,
