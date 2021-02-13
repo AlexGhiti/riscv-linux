@@ -265,6 +265,9 @@ void __init setup_arch(char **cmdline_p)
 
 	if (IS_ENABLED(CONFIG_STRICT_KERNEL_RWX))
 		protect_kernel_text_data();
+
+	protect_kernel_linear_mapping_text_rodata();
+
 #ifdef CONFIG_SWIOTLB
 	swiotlb_init(1);
 #endif
