@@ -91,6 +91,9 @@ typedef struct page *pgtable_t;
 #ifdef CONFIG_MMU
 extern unsigned long va_pa_offset;
 extern unsigned long va_kernel_pa_offset;
+#ifdef CONFIG_XIP_KERNEL
+extern unsigned long va_kernel_xip_pa_offset;
+#endif
 extern unsigned long pfn_base;
 #define ARCH_PFN_OFFSET		(pfn_base)
 #else
@@ -102,11 +105,29 @@ extern unsigned long pfn_base;
 extern unsigned long kernel_virt_addr;
 
 #define linear_mapping_pa_to_va(x)	((void *)((unsigned long)(x) + va_pa_offset))
+#ifdef CONFIG_XIP_KERNEL
+#define kernel_mapping_pa_to_va(y)	({						\
+	unsigned long _y = y;								\
+	(_y >= CONFIG_PHYS_RAM_BASE) ?							\
+		(void *)((unsigned long)(_y) + va_kernel_pa_offset + XIP_OFFSET):	\
+		(void *)((unsigned long)(_y) + va_kernel_xip_pa_offset);		\
+	})
+#else
 #define kernel_mapping_pa_to_va(x)	((void *)((unsigned long)(x) + va_kernel_pa_offset))
+#endif
 #define __pa_to_va_nodebug(x)		linear_mapping_pa_to_va(x)
 
 #define linear_mapping_va_to_pa(x)	((unsigned long)(x) - va_pa_offset)
+#ifdef CONFIG_XIP_KERNEL
+#define kernel_mapping_va_to_pa(y) ({						\
+	unsigned long _y = y;							\
+	(_y < kernel_virt_addr + XIP_OFFSET) ?					\
+		((unsigned long)(_y) - va_kernel_xip_pa_offset):		\
+		((unsigned long)(_y) - va_kernel_pa_offset - XIP_OFFSET);	\
+	})
+#else
 #define kernel_mapping_va_to_pa(x)	((unsigned long)(x) - va_kernel_pa_offset)
+#endif
 #define __va_to_pa_nodebug(x)	({						\
 	unsigned long _x = x;							\
 	(_x < kernel_virt_addr) ?						\
@@ -139,8 +160,14 @@ extern phys_addr_t __phys_addr_symbol(unsigned long x);
 #define phys_to_page(paddr)	(pfn_to_page(phys_to_pfn(paddr)))
 
 #ifdef CONFIG_FLATMEM
+#ifdef CONFIG_XIP_KERNEL
+#define pfn_valid(pfn) \
+	((((pfn) >= ARCH_PFN_OFFSET) && (((pfn) - ARCH_PFN_OFFSET) < max_mapnr)) ||	\
+	  ((pfn) >= PFN_DOWN(CONFIG_XIP_PHYS_ADDR) && (((pfn) - PFN_DOWN(CONFIG_XIP_PHYS_ADDR)) < XIP_OFFSET)))
+#else
 #define pfn_valid(pfn) \
 	(((pfn) >= ARCH_PFN_OFFSET) && (((pfn) - ARCH_PFN_OFFSET) < max_mapnr))
+#endif
 #endif
 
 #endif /* __ASSEMBLY__ */
