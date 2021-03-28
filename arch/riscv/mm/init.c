@@ -180,6 +180,9 @@ EXPORT_SYMBOL(va_pa_offset);
 #endif
 unsigned long pfn_base;
 EXPORT_SYMBOL(pfn_base);
+#ifdef CONFIG_XIP_KERNEL
+#define pfn_base	(*((unsigned long *)XIP_FIXUP(&pfn_base)))
+#endif
 
 pgd_t swapper_pg_dir[PTRS_PER_PGD] __page_aligned_bss;
 pgd_t trampoline_pg_dir[PTRS_PER_PGD] __page_aligned_bss;
