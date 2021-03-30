@@ -136,6 +136,8 @@ void __init setup_bootmem(void)
 	 */
 	memblock_reserve(vmlinux_start, (vmlinux_end - vmlinux_start + PMD_SIZE - 1) & PMD_MASK);
 
+	memblock_reserve(0x80000000, 0x200000);
+
 	/*
 	 * memblock allocator is not aware of the fact that last 4K bytes of
 	 * the addressable memory can not be mapped because of IS_ERR_VALUE

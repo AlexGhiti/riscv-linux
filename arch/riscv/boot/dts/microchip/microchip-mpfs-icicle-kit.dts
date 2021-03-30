@@ -15,7 +15,7 @@
 	compatible = "microchip,mpfs-icicle-kit";
 
 	chosen {
-		stdout-path = &serial0;
+		stdout-path = &serial1;
 	};
 
 	cpus {
@@ -30,10 +30,6 @@
 
 	soc {
 	};
-};
-
-&serial0 {
-	status = "okay";
 };
 
 &serial1 {
