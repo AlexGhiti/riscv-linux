@@ -509,7 +509,7 @@ endmenu
 config BUILTIN_DTB
 	bool
 	depends on OF
-	default y if XIP_KERNEL
+	default y
 
 menu "Power management options"
 

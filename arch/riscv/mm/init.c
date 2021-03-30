@@ -126,6 +126,7 @@ void __init setup_bootmem(void)
 
 	/* Reserve from the start of the kernel to the end of the kernel */
 	memblock_reserve(vmlinux_start, vmlinux_end - vmlinux_start);
+	memblock_reserve(0x80000000, 0x200000);
 
 	/*
 	 * memblock allocator is not aware of the fact that last 4K bytes of
