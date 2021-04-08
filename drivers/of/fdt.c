@@ -1062,13 +1062,13 @@ int __init early_init_dt_scan_chosen(unsigned long node, const char *uname,
 		if (l > COMMAND_LINE_SIZE) {
 			char *cmd_p = (char *)data + COMMAND_LINE_SIZE - 1;
 
-			while (!isspace(*cmd_p))
+			while (!isspace(*cmd_p) && cmd_p > (char *)data)
 				cmd_p--;
 
 			*cmd_p = '\0';
 
-			pr_err("Command line is too long: truncated to %d bytes\n",
-			       (int)(cmd_p - (char *)data + 1));
+			pr_err("Command line is too long: truncated to %td bytes\n",
+			       cmd_p - (char *)data + 1);
 		}
 	}
 
