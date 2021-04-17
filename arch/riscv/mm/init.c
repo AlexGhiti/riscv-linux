@@ -28,7 +28,7 @@
 
 #include "../kernel/head.h"
 
-unsigned long kernel_virt_addr = KERNEL_LINK_ADDR + 0x12200000;
+unsigned long kernel_virt_addr = KERNEL_LINK_ADDR;
 EXPORT_SYMBOL(kernel_virt_addr);
 
 unsigned long empty_zero_page[PAGE_SIZE / sizeof(unsigned long)]
