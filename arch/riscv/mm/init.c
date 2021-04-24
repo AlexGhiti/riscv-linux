@@ -586,14 +586,10 @@ asmlinkage void __init setup_vm(uintptr_t dtb_pa)
 	 * whereas dtb_early_va will be used before setup_vm_final installs
 	 * the linear mapping.
 	 */
-<<<<<<< HEAD
-	dtb_early_va = kernel_mapping_pa_to_va(dtb_pa);
-#else
-	dtb_early_va = __va(dtb_pa);
-#endif /* CONFIG_64BIT */
-=======
 	dtb_early_va = kernel_mapping_pa_to_va(XIP_FIXUP(dtb_pa));
->>>>>>> 044301fc9c7c (RISC-V: enable XIP)
+#else
+	dtb_early_va = __va(XIP_FIXUP(dtb_pa));
+#endif /* CONFIG_64BIT */
 #endif /* CONFIG_BUILTIN_DTB */
 #else
 #ifndef CONFIG_BUILTIN_DTB
@@ -605,15 +601,11 @@ asmlinkage void __init setup_vm(uintptr_t dtb_pa)
 			   pa + PGDIR_SIZE, PGDIR_SIZE, PAGE_KERNEL);
 	dtb_early_va = (void *)DTB_EARLY_BASE_VA + (dtb_pa & (PGDIR_SIZE - 1));
 #else /* CONFIG_BUILTIN_DTB */
-<<<<<<< HEAD
 #ifdef CONFIG_64BIT
-	dtb_early_va = kernel_mapping_pa_to_va(dtb_pa);
-#else
-	dtb_early_va = __va(dtb_pa);
-#endif /* CONFIG_64BIT */
-=======
 	dtb_early_va = kernel_mapping_pa_to_va(XIP_FIXUP(dtb_pa));
->>>>>>> 044301fc9c7c (RISC-V: enable XIP)
+#else
+	dtb_early_va = __va(XIP_FIXUP(dtb_pa));
+#endif /* CONFIG_64BIT */
 #endif /* CONFIG_BUILTIN_DTB */
 #endif
 	dtb_early_pa = dtb_pa;
