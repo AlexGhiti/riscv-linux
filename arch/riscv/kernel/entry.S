@@ -447,11 +447,12 @@ ENDPROC(__switch_to)
 #define do_page_fault do_trap_unknown
 #endif
 
-	.section ".rodata"
+	.section ".alternative"
 	/* Exception vector table */
 ENTRY(excp_vect_table)
 	RISCV_PTR do_trap_insn_misaligned
-	ALT_INSN_FAULT(RISCV_PTR do_trap_insn_fault)
+	#ALT_INSN_FAULT(RISCV_PTR do_trap_insn_fault)
+	RISCV_PTR do_trap_insn_fault
 	RISCV_PTR do_trap_insn_illegal
 	RISCV_PTR do_trap_break
 	RISCV_PTR do_trap_load_misaligned
@@ -466,7 +467,7 @@ ENTRY(excp_vect_table)
 	ALT_PAGE_FAULT(RISCV_PTR do_page_fault)
 	RISCV_PTR do_page_fault   /* load page fault */
 	RISCV_PTR do_trap_unknown
-	RISCV_PTR do_page_fault   /* store page fault */
+	ALT_PAGE_FAULT(RISCV_PTR do_page_fault)   /* store page fault */
 excp_vect_table_end:
 END(excp_vect_table)
 

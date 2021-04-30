@@ -14,8 +14,14 @@
 #define	ERRATA_SIFIVE_NUMBER 2
 #endif
 
+#ifdef CONFIG_ERRATA_POLARFIRE
+#define ERRATA_POLARFIRE_CIP_453 0
+#define	ERRATA_POLARFIRE_NUMBER 1
+#endif
+
 #ifdef __ASSEMBLY__
 
+#ifdef CONFIG_ERRATA_SIFIVE
 #define ALT_INSN_FAULT(x)						\
 ALTERNATIVE(__stringify(RISCV_PTR do_trap_insn_fault),			\
 	    __stringify(RISCV_PTR sifive_cip_453_insn_fault_trp),	\
@@ -27,6 +33,16 @@ ALTERNATIVE(__stringify(RISCV_PTR do_page_fault),			\
 	    __stringify(RISCV_PTR sifive_cip_453_page_fault_trp),	\
 	    SIFIVE_VENDOR_ID, ERRATA_SIFIVE_CIP_453,			\
 	    CONFIG_ERRATA_SIFIVE_CIP_453)
+#endif
+
+#ifdef CONFIG_ERRATA_POLARFIRE
+#define ALT_PAGE_FAULT(x)						\
+ALTERNATIVE(__stringify(RISCV_PTR do_page_fault),			\
+	    __stringify(RISCV_PTR polarfire_cip_453_page_fault_trp),	\
+	    POLARFIRE_VENDOR_ID, ERRATA_POLARFIRE_CIP_453,			\
+	    CONFIG_ERRATA_POLARFIRE_CIP_453)
+#endif
+
 #else /* !__ASSEMBLY__ */
 
 #define ALT_FLUSH_TLB_PAGE(x)						\

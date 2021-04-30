@@ -470,7 +470,7 @@ static void __init create_kernel_page_table(pgd_t *pgdir, uintptr_t map_size)
 	for (va = kernel_virt_addr; va < end_va; va += map_size)
 		create_pgd_mapping(pgdir, va,
 				   xiprom + (va - kernel_virt_addr),
-				   map_size, PAGE_KERNEL_EXEC);
+				   map_size, __pgprot(_PAGE_KERNEL | _PAGE_EXEC & ~PAGE_WRITE)); //PAGE_KERNEL_EXEC);
 
 	/* Map the data in RAM */
 	end_va = kernel_virt_addr + XIP_OFFSET + load_sz;

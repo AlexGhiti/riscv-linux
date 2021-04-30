@@ -44,6 +44,7 @@ void __init smp_prepare_boot_cpu(void)
 #ifdef CONFIG_RISCV_ERRATA_ALTERNATIVE
 	apply_boot_alternatives();
 #endif
+	*(unsigned int *)0x80000000 = 0;
 }
 
 void __init smp_prepare_cpus(unsigned int max_cpus)

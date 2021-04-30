@@ -41,4 +41,25 @@ config ERRATA_SIFIVE_CIP_1200
 
 	  If you don't know what to do here, say "Y".
 
+config ERRATA_POLARFIRE
+	bool "Polarfire errata"
+	depends on RISCV_ERRATA_ALTERNATIVE
+	help
+	  All polarfire errata Kconfig depend on this Kconfig. Disabling
+	  this Kconfig will disable all SiFive errata. Please say "Y"
+	  here if your platform uses SiFive CPU cores.
+
+	  Otherwise, please say "N" here to avoid unnecessary overhead.
+
+config ERRATA_POLARFIRE_CIP_453
+	bool "Apply Polarfire errata CIP-453"
+	depends on ERRATA_POLARFIRE
+	default y
+	help
+	  This will apply the SiFive CIP-453 errata to add sign extension
+	  to the $badaddr when exception type is instruction page fault
+	  and instruction access fault.
+
+	  If you don't know what to do here, say "Y".
+
 endmenu
