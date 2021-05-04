@@ -11,6 +11,8 @@
 #include <asm/pgtable.h>
 #include <asm/pgtable-bits.h>
 
+#include "../mm/init_pagetable.h"
+
 /*
  * Only regions of type EFI_RUNTIME_SERVICES_CODE need to be
  * executable, everything else can be mapped with the XN bits
@@ -53,7 +55,7 @@ int __init efi_create_mapping(struct mm_struct *mm, efi_memory_desc_t *md)
 	for (i = 0; i < md->num_pages; i++)
 		create_pgd_mapping(mm->pgd, md->virt_addr + i * PAGE_SIZE,
 				   md->phys_addr + i * PAGE_SIZE,
-				   PAGE_SIZE, prot);
+				   PAGE_SIZE, prot, &pt_ops);
 	return 0;
 }
 
