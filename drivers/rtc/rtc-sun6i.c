@@ -13,6 +13,7 @@
 
 #include <linux/clk.h>
 #include <linux/clk-provider.h>
+#include <linux/clk/sunxi-ng.h>
 #include <linux/delay.h>
 #include <linux/err.h>
 #include <linux/fs.h>
@@ -673,8 +674,23 @@ static int sun6i_rtc_probe(struct platform_device *pdev)
 	struct sun6i_rtc_dev *chip = sun6i_rtc;
 	int ret;
 
-	if (!chip)
-		return -ENODEV;
+	if (!chip) {
+		chip = devm_kzalloc(&pdev->dev, sizeof(*chip), GFP_KERNEL);
+		if (!chip)
+			return -ENOMEM;
+
+		spin_lock_init(&chip->lock);
+
+		chip->base = devm_platform_ioremap_resource(pdev, 0);
+		if (IS_ERR(chip->base))
+			return PTR_ERR(chip->base);
+
+		if (IS_REACHABLE(CONFIG_SUN6I_RTC_CCU)) {
+			ret = sun6i_rtc_ccu_probe(&pdev->dev, chip->base);
+			if (ret)
+				return ret;
+		}
+	}
 
 	platform_set_drvdata(pdev, chip);
 
