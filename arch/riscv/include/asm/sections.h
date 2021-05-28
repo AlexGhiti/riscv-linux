@@ -16,17 +16,26 @@ extern char __alt_start[], __alt_end[];
 
 static inline bool is_va_kernel_text(uintptr_t va)
 {
-	return (va >= (uintptr_t)_start && va < (uintptr_t)__init_text_begin);
+	uintptr_t start = (uintptr_t)_start;
+	uintptr_t end = (uintptr_t)__init_text_begin;
+
+	return va >= start && va < end;
 }
 
 static inline bool is_va_kernel_lm_alias_text(uintptr_t va)
 {
-	return (va >= (uintptr_t)lm_alias(_start) && va < (uintptr_t)lm_alias(__init_text_begin));
+	uintptr_t start = (uintptr_t)lm_alias(_start);
+	uintptr_t end = (uintptr_t)lm_alias(__init_text_begin);
+
+	return va >= start && va < end;
 }
 
 static inline bool is_va_kernel_init_text(uintptr_t va)
 {
-	return (va >= (uintptr_t)__init_text_begin && va < (uintptr_t)__init_data_begin);
+	uintptr_t start = (uintptr_t)__init_text_begin;
+	uintptr_t end = (uintptr_t)__init_data_begin;
+
+	return va >= start && va < end;
 }
 
 #endif /* __ASM_SECTIONS_H */
