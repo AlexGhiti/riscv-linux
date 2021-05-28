@@ -453,14 +453,9 @@ static __init pgprot_t pgprot_from_va(uintptr_t va)
 
 void mark_rodata_ro(void)
 {
-	unsigned long rodata_start = (unsigned long)__start_rodata;
-	unsigned long data_start = (unsigned long)_data;
-	unsigned long __maybe_unused lm_rodata_start = (unsigned long)lm_alias(__start_rodata);
-	unsigned long __maybe_unused lm_data_start = (unsigned long)lm_alias(_data);
-
-	set_memory_ro(rodata_start, (data_start - rodata_start) >> PAGE_SHIFT);
+	set_kernel_memory(__start_rodata, _data, set_memory_ro);
 #ifdef CONFIG_64BIT
-	set_memory_ro(lm_rodata_start, (lm_data_start - lm_rodata_start) >> PAGE_SHIFT);
+	set_kernel_memory(lm_alias(__start_rodata), lm_alias(_data), set_memory_ro);
 #endif
 
 	debug_checkwx();
