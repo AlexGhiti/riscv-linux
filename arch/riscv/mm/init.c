@@ -428,52 +428,46 @@ asmlinkage void __init __copy_data(void)
 #ifdef CONFIG_STRICT_KERNEL_RWX
 static __init pgprot_t pgprot_from_va(uintptr_t va)
 {
-#ifdef CONFIG_64BIT
-	if (is_va_kernel_text(va) || is_va_kernel_init_text(va))
-		return PAGE_KERNEL_READ_EXEC;
-
 	/*
-	 * We must mark only text as read-only as init text will get freed later
-	 * and rodata section is marked readonly in mark_rodata_ro.
+	 * 32b kernel mapping lies in the linear mapping:
 	 */
-	if (is_va_kernel_lm_alias_text(va))
-		return PAGE_KERNEL_READ;
-
-	return PAGE_KERNEL;
-#else
 	if (is_va_kernel_text(va))
 		return PAGE_KERNEL_READ_EXEC;
 
 	if (is_va_kernel_init_text(va))
-		return PAGE_KERNEL_EXEC;
+		return IS_ENABLED(CONFIG_64BIT) ? PAGE_KERNEL_READ_EXEC : PAGE_KERNEL_EXEC;
+
+	/*
+	 * In 64b kernel, the kernel mapping is outside the linear mapping. So
+	 * we need to protect the alias of the kernel mapping that resides in
+	 * the linear mapping: we mark the text section as read-only and
+	 * non-executable and not the init text section which will get freed
+	 * later in free_init_mem.  which uses linear
+	 * mapping to memset the init section (cf free_reserved_area).
+	 * rodata section is marked readonly in mark_rodata_ro.
+	 */
+	if (IS_ENABLED(CONFIG_64BIT) && is_va_kernel_lm_alias_text(va))
+		return PAGE_KERNEL_READ;
 
 	return PAGE_KERNEL;
-#endif /* CONFIG_64BIT */
 }
 
 void mark_rodata_ro(void)
 {
 	set_kernel_memory(__start_rodata, _data, set_memory_ro);
-#ifdef CONFIG_64BIT
-	set_kernel_memory(lm_alias(__start_rodata), lm_alias(_data), set_memory_ro);
-#endif
+	if (IS_ENABLED(CONFIG_64BIT))
+		set_kernel_memory(lm_alias(__start_rodata), lm_alias(_data),
+				  set_memory_ro);
 
 	debug_checkwx();
 }
-#else /* CONFIG_STRICT_KERNEL_RWX */
+#else
 static __init pgprot_t pgprot_from_va(uintptr_t va)
 {
-#ifdef CONFIG_64BIT
-	if (is_kernel_mapping(va))
-		return PAGE_KERNEL_EXEC;
-
-	if (is_linear_mapping(va))
+	if (IS_ENABLED(CONFIG_64BIT) && !is_kernel_mapping(va))
 		return PAGE_KERNEL;
 
-	return PAGE_KERNEL;
-#else
 	return PAGE_KERNEL_EXEC;
-#endif /* CONFIG_64BIT */
 }
 #endif /* CONFIG_STRICT_KERNEL_RWX */
 
