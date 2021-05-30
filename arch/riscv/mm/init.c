@@ -626,7 +626,7 @@ asmlinkage void __init setup_vm(uintptr_t dtb_pa)
 	 * whereas dtb_early_va will be used before setup_vm_final installs
 	 * the linear mapping.
 	 */
-	dtb_early_va = kernel_mapping_pa_to_va(XIP_FIXUP(dtb_pa));
+	dtb_early_va = (void *)__kernel_mapping_pa_to_va(XIP_FIXUP(dtb_pa));
 #else
 	dtb_early_va = __va(dtb_pa);
 #endif /* CONFIG_64BIT */
@@ -642,7 +642,7 @@ asmlinkage void __init setup_vm(uintptr_t dtb_pa)
 	dtb_early_va = (void *)DTB_EARLY_BASE_VA + (dtb_pa & (PGDIR_SIZE - 1));
 #else /* CONFIG_BUILTIN_DTB */
 #ifdef CONFIG_64BIT
-	dtb_early_va = kernel_mapping_pa_to_va(XIP_FIXUP(dtb_pa));
+	dtb_early_va = (void *)__kernel_mapping_pa_to_va(XIP_FIXUP(dtb_pa));
 #else
 	dtb_early_va = __va(dtb_pa);
 #endif /* CONFIG_64BIT */

@@ -11,6 +11,7 @@
 
 #include <linux/pfn.h>
 #include <linux/const.h>
+#include <linux/sizes.h>
 
 #define PAGE_SHIFT	(12)
 #define PAGE_SIZE	(_AC(1, UL) << PAGE_SHIFT)
@@ -32,6 +33,11 @@
  * physical memory (aligned on a page boundary).
  */
 #define PAGE_OFFSET		_AC(CONFIG_PAGE_OFFSET, UL)
+#ifdef CONFIG_XIP_KERNEL
+#define XIP_OFFSET		SZ_8M
+#else
+#define XIP_OFFSET		0
+#endif
 
 #define KERN_VIRT_SIZE (-PAGE_OFFSET)
 
@@ -109,9 +115,14 @@ extern uintptr_t load_sz;
 extern unsigned long kernel_virt_addr;
 
 #ifdef CONFIG_64BIT
+static inline bool is_kernel_xip_mapping(unsigned long va)
+{
+	return va >= kernel_virt_addr && va < kernel_virt_addr + XIP_OFFSET;
+}
+
 static inline bool is_kernel_mapping(unsigned long va)
 {
-	return va >= kernel_virt_addr && va < (kernel_virt_addr + load_sz);
+	return va >= kernel_virt_addr && va < kernel_virt_addr + XIP_OFFSET + load_sz;
 }
 
 static inline bool is_linear_mapping(unsigned long va)
@@ -119,28 +130,42 @@ static inline bool is_linear_mapping(unsigned long va)
 	return va >= PAGE_OFFSET && va < kernel_virt_addr;
 }
 
-#define linear_mapping_pa_to_va(x)	((void *)((unsigned long)(x) + va_pa_offset))
-#define kernel_mapping_pa_to_va(y)	({						\
-	unsigned long _y = y;								\
-	(_y >= CONFIG_PHYS_RAM_BASE) ?							\
-		(void *)((unsigned long)(_y) + va_kernel_pa_offset + XIP_OFFSET) :	\
-		(void *)((unsigned long)(_y) + va_kernel_xip_pa_offset);		\
-	})
-#define __pa_to_va_nodebug(x)		linear_mapping_pa_to_va(x)
+#define __linear_mapping_pa_to_va(x)		((x) + va_pa_offset)
+#define __kernel_default_mapping_pa_to_va(x)	((x) + va_kernel_pa_offset + XIP_OFFSET)
+#define __kernel_xip_mapping_pa_to_va(x)	((x) + va_kernel_xip_pa_offset)
 
-#define linear_mapping_va_to_pa(x)	((unsigned long)(x) - va_pa_offset)
-#define kernel_mapping_va_to_pa(y) ({						\
-	unsigned long _y = y;							\
-	(_y < kernel_virt_addr + XIP_OFFSET) ?					\
-		((unsigned long)(_y) - va_kernel_xip_pa_offset) :		\
-		((unsigned long)(_y) - va_kernel_pa_offset - XIP_OFFSET);	\
-	})
+static inline unsigned long __kernel_mapping_pa_to_va(unsigned long pa)
+{
+	if (pa >= CONFIG_PHYS_RAM_BASE)
+		return __kernel_mapping_pa_to_va(pa);
 
-#define __va_to_pa_nodebug(x)	({						\
-	unsigned long _x = x;							\
-	is_linear_mapping(_x) ?							\
-		linear_mapping_va_to_pa(_x) : kernel_mapping_va_to_pa(_x);	\
-	})
+	return __kernel_xip_mapping_pa_to_va(pa);
+}
+
+static inline unsigned long __pa_to_va_nodebug(unsigned long pa)
+{
+	return __linear_mapping_pa_to_va(pa);
+}
+
+#define __linear_mapping_va_to_pa(x)		((x) - va_pa_offset)
+#define __kernel_default_mapping_va_to_pa(x)	((x) - va_kernel_pa_offset - XIP_OFFSET)
+#define __kernel_xip_mapping_va_to_pa(x)	((x) - va_kernel_xip_pa_offset)
+
+static inline unsigned long __kernel_mapping_va_to_pa(unsigned long va)
+{
+	if (is_kernel_xip_mapping(va))
+		return __kernel_xip_mapping_va_to_pa(va);
+
+	return __kernel_default_mapping_va_to_pa(va);
+}
+
+static inline unsigned long __va_to_pa_nodebug(unsigned long va)
+{
+	if (is_linear_mapping(va))
+		return __linear_mapping_va_to_pa(va);
+
+	return __kernel_mapping_va_to_pa(va);
+}
 #else
 static inline bool is_kernel_mapping(unsigned long va)
 {
@@ -152,8 +177,19 @@ static inline bool is_linear_mapping(unsigned long va)
 	return va >= PAGE_OFFSET;
 }
 
-#define __pa_to_va_nodebug(x)  ((void *)((unsigned long) (x) + va_pa_offset))
-#define __va_to_pa_nodebug(x)  ((unsigned long)(x) - va_pa_offset)
+#define __linear_mapping_pa_to_va(x)		((x) + va_pa_offset)
+
+static inline unsigned long __pa_to_va_nodebug(unsigned long pa)
+{
+	return __linear_mapping_pa_to_va(pa);
+}
+
+#define __linear_mapping_va_to_pa(x)		((x) - va_pa_offset)
+
+static inline unsigned long __va_to_pa_nodebug(unsigned long va)
+{
+	return __linear_mapping_va_to_pa(va);
+}
 #endif /* CONFIG_64BIT */
 
 #ifdef CONFIG_DEBUG_VIRTUAL
