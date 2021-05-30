@@ -499,7 +499,6 @@ config PHYS_RAM_BASE_FIXED
 
 config PHYS_RAM_BASE
 	hex "Platform Physical RAM address"
-	depends on PHYS_RAM_BASE_FIXED
 	default "0x80000000"
 	help
 	  This is the physical address of RAM in the system. It has to be
