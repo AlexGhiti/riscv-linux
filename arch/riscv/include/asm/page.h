@@ -136,10 +136,10 @@ static inline bool is_linear_mapping(unsigned long va)
 
 static inline unsigned long __kernel_mapping_pa_to_va(unsigned long pa)
 {
-	if (pa >= CONFIG_PHYS_RAM_BASE)
-		return __kernel_mapping_pa_to_va(pa);
+	if (pa < CONFIG_PHYS_RAM_BASE)
+		return __kernel_xip_mapping_pa_to_va(pa);
 
-	return __kernel_xip_mapping_pa_to_va(pa);
+	return __kernel_default_mapping_pa_to_va(pa);
 }
 
 static inline unsigned long __pa_to_va_nodebug(unsigned long pa)
