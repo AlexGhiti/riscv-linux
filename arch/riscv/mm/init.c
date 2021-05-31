@@ -428,23 +428,22 @@ asmlinkage void __init __copy_data(void)
 #ifdef CONFIG_STRICT_KERNEL_RWX
 static __init pgprot_t pgprot_from_va(uintptr_t va)
 {
-	/*
-	 * 32b kernel mapping lies in the linear mapping:
-	 */
 	if (is_va_kernel_text(va))
 		return PAGE_KERNEL_READ_EXEC;
 
+	/*
+	 * The init text section is freed in free_init_mem by using the linear
+	 * mapping addresses (cf free_reserved_area): in 32b kernel, the kernel mapping
+	 * is in the linear mapping so we must not mark the init text as read-only.
+	 */
 	if (is_va_kernel_init_text(va))
 		return IS_ENABLED(CONFIG_64BIT) ? PAGE_KERNEL_READ_EXEC : PAGE_KERNEL_EXEC;
 
 	/*
-	 * In 64b kernel, the kernel mapping is outside the linear mapping. So
-	 * we need to protect the alias of the kernel mapping that resides in
-	 * the linear mapping: we mark the text section as read-only and
-	 * non-executable and not the init text section which will get freed
-	 * later in free_init_mem.  which uses linear
-	 * mapping to memset the init section (cf free_reserved_area).
-	 * rodata section is marked readonly in mark_rodata_ro.
+	 * In 64b kernel, the kernel mapping is outside the linear mapping so we
+	 * must only mark the alias text section as read-only, not the init text
+	 * for the same reason as explained above.
+	 * And rodata section is marked readonly in mark_rodata_ro.
 	 */
 	if (IS_ENABLED(CONFIG_64BIT) && is_va_kernel_lm_alias_text(va))
 		return PAGE_KERNEL_READ;
