@@ -33,6 +33,7 @@
 #include <asm/thread_info.h>
 #include <asm/kasan.h>
 #include <asm/efi.h>
+#include <asm/xip-fixup.h>
 
 #include "head.h"
 

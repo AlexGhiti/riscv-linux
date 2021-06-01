@@ -26,13 +26,11 @@
 #include <asm/io.h>
 #include <asm/ptdump.h>
 #include <asm/numa.h>
+#include <asm/xip-fixup.h>
 
 #include "../kernel/head.h"
 
-unsigned long kernel_virt_addr = KERNEL_LINK_ADDR;
-EXPORT_SYMBOL(kernel_virt_addr);
 #ifdef CONFIG_XIP_KERNEL
-#define kernel_virt_addr       (*((unsigned long *)XIP_FIXUP(&kernel_virt_addr)))
 extern char _xiprom[], _exiprom[];
 #endif
 
@@ -42,17 +40,6 @@ EXPORT_SYMBOL(empty_zero_page);
 
 extern char _start[];
 #define DTB_EARLY_BASE_VA      PGDIR_SIZE
-void *_dtb_early_va __initdata;
-uintptr_t _dtb_early_pa __initdata;
-
-struct pt_alloc_ops {
-	pte_t *(*get_pte_virt)(phys_addr_t pa);
-	phys_addr_t (*alloc_pte)(uintptr_t va);
-#ifndef __PAGETABLE_PMD_FOLDED
-	pmd_t *(*get_pmd_virt)(phys_addr_t pa);
-	phys_addr_t (*alloc_pmd)(uintptr_t va);
-#endif
-};
 
 static phys_addr_t dma32_phys_limit __ro_after_init;
 
@@ -173,47 +160,10 @@ static void __init setup_bootmem(void)
 }
 
 #ifdef CONFIG_MMU
-static struct pt_alloc_ops _pt_ops __ro_after_init;
-
-#ifdef CONFIG_XIP_KERNEL
-#define pt_ops (*(struct pt_alloc_ops *)XIP_FIXUP(&_pt_ops))
-#else
-#define pt_ops _pt_ops
-#endif
-
-/* Offset between linear mapping virtual address and kernel load address */
-unsigned long va_pa_offset __ro_after_init;
-EXPORT_SYMBOL(va_pa_offset);
-#ifdef CONFIG_XIP_KERNEL
-#define va_pa_offset   (*((unsigned long *)XIP_FIXUP(&va_pa_offset)))
-#endif
-/* Offset between kernel mapping virtual address and kernel load address */
-#ifdef CONFIG_64BIT
-unsigned long va_kernel_pa_offset;
-EXPORT_SYMBOL(va_kernel_pa_offset);
-#endif
-#ifdef CONFIG_XIP_KERNEL
-#define va_kernel_pa_offset    (*((unsigned long *)XIP_FIXUP(&va_kernel_pa_offset)))
-#endif
-unsigned long va_kernel_xip_pa_offset;
-EXPORT_SYMBOL(va_kernel_xip_pa_offset);
-#ifdef CONFIG_XIP_KERNEL
-#define va_kernel_xip_pa_offset        (*((unsigned long *)XIP_FIXUP(&va_kernel_xip_pa_offset)))
-#endif
 unsigned long pfn_base __ro_after_init;
 EXPORT_SYMBOL(pfn_base);
 
 pgd_t swapper_pg_dir[PTRS_PER_PGD] __page_aligned_bss;
-pgd_t trampoline_pg_dir[PTRS_PER_PGD] __page_aligned_bss;
-pte_t fixmap_pte[PTRS_PER_PTE] __page_aligned_bss;
-
-pgd_t early_pg_dir[PTRS_PER_PGD] __initdata __aligned(PAGE_SIZE);
-
-#ifdef CONFIG_XIP_KERNEL
-#define trampoline_pg_dir      ((pgd_t *)XIP_FIXUP(trampoline_pg_dir))
-#define fixmap_pte             ((pte_t *)XIP_FIXUP(fixmap_pte))
-#define early_pg_dir           ((pgd_t *)XIP_FIXUP(early_pg_dir))
-#endif /* CONFIG_XIP_KERNEL */
 
 void __set_fixmap(enum fixed_addresses idx, phys_addr_t phys, pgprot_t prot)
 {
@@ -285,16 +235,7 @@ static void __init create_pte_mapping(pte_t *ptep,
 
 #ifndef __PAGETABLE_PMD_FOLDED
 
-pmd_t trampoline_pmd[PTRS_PER_PMD] __page_aligned_bss;
-pmd_t fixmap_pmd[PTRS_PER_PMD] __page_aligned_bss;
-pmd_t early_pmd[PTRS_PER_PMD] __initdata __aligned(PAGE_SIZE);
 pmd_t early_dtb_pmd[PTRS_PER_PMD] __initdata __aligned(PAGE_SIZE);
-
-#ifdef CONFIG_XIP_KERNEL
-#define trampoline_pmd ((pmd_t *)XIP_FIXUP(trampoline_pmd))
-#define fixmap_pmd     ((pmd_t *)XIP_FIXUP(fixmap_pmd))
-#define early_pmd      ((pmd_t *)XIP_FIXUP(early_pmd))
-#endif /* CONFIG_XIP_KERNEL */
 
 static pmd_t *__init get_pmd_virt_early(phys_addr_t pa)
 {
@@ -488,17 +429,7 @@ static __init pgprot_t pgprot_from_va(uintptr_t va)
 #error "setup_vm() is called from head.S before relocate so it should not use absolute addressing."
 #endif
 
-uintptr_t load_pa, load_sz;
 #ifdef CONFIG_XIP_KERNEL
-#define load_pa        (*((uintptr_t *)XIP_FIXUP(&load_pa)))
-#define load_sz        (*((uintptr_t *)XIP_FIXUP(&load_sz)))
-#endif
-
-#ifdef CONFIG_XIP_KERNEL
-uintptr_t xiprom, xiprom_sz;
-#define xiprom_sz      (*((uintptr_t *)XIP_FIXUP(&xiprom_sz)))
-#define xiprom         (*((uintptr_t *)XIP_FIXUP(&xiprom)))
-
 static void __init create_kernel_page_table(pgd_t *pgdir, uintptr_t map_size,
 					    __always_unused bool early)
 {

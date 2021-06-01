@@ -8,6 +8,7 @@ endif
 
 KCOV_INSTRUMENT_init.o := n
 
+obj-y += xip-fixup.o
 obj-y += init.o
 obj-y += extable.o
 obj-$(CONFIG_MMU) += fault.o pageattr.o

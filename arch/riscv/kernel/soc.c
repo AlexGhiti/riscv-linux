@@ -6,6 +6,7 @@
 #include <linux/libfdt.h>
 #include <linux/pgtable.h>
 #include <asm/soc.h>
+#include <asm/xip-fixup.h>
 
 /*
  * This is called extremly early, before parse_dtb(), to allow initializing
