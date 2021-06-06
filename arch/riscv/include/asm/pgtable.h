@@ -143,7 +143,7 @@ extern struct pt_alloc_ops pt_ops __initdata;
 #define USER_PTRS_PER_PGD   (TASK_SIZE / PGDIR_SIZE)
 
 /* Page protection bits */
-#define _PAGE_BASE	(_PAGE_PRESENT | _PAGE_ACCESSED | _PAGE_USER)
+#define _PAGE_BASE	(_PAGE_PRESENT | _PAGE_ACCESSED | _PAGE_USER | _PAGE_DMA_CACHE)
 
 #define PAGE_NONE		__pgprot(_PAGE_PROT_NONE | _PAGE_READ)
 #define PAGE_READ		__pgprot(_PAGE_BASE | _PAGE_READ)
@@ -164,7 +164,8 @@ extern struct pt_alloc_ops pt_ops __initdata;
 				| _PAGE_PRESENT \
 				| _PAGE_ACCESSED \
 				| _PAGE_DIRTY \
-				| _PAGE_GLOBAL)
+				| _PAGE_GLOBAL \
+				| _PAGE_DMA_CACHE)
 
 #define PAGE_KERNEL		__pgprot(_PAGE_KERNEL)
 #define PAGE_KERNEL_READ	__pgprot(_PAGE_KERNEL & ~_PAGE_WRITE)
@@ -174,11 +175,7 @@ extern struct pt_alloc_ops pt_ops __initdata;
 
 #define PAGE_TABLE		__pgprot(_PAGE_TABLE)
 
-/*
- * The RISC-V ISA doesn't yet specify how to query or modify PMAs, so we can't
- * change the properties of memory regions.
- */
-#define _PAGE_IOREMAP _PAGE_KERNEL
+#define _PAGE_IOREMAP	((_PAGE_KERNEL & ~_PAGE_DMA_MASK) | _PAGE_DMA_IO)
 
 extern pgd_t swapper_pg_dir[];
 
