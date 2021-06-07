@@ -118,7 +118,7 @@ extern unsigned long kernel_virt_addr;
 #define kernel_mapping_pa_to_va(y)	({						\
 	unsigned long _y = y;								\
 	(_y >= CONFIG_PHYS_RAM_BASE) ?							\
-		(void *)((unsigned long)(_y) + va_kernel_pa_offset + XIP_OFFSET) :	\
+		(void *)((unsigned long)(_y) + va_kernel_pa_offset) :	\
 		(void *)((unsigned long)(_y) + va_kernel_xip_pa_offset);		\
 	})
 #define __pa_to_va_nodebug(x)		linear_mapping_pa_to_va(x)
@@ -128,7 +128,7 @@ extern unsigned long kernel_virt_addr;
 	unsigned long _y = y;							\
 	(_y < kernel_virt_addr + XIP_OFFSET) ?					\
 		((unsigned long)(_y) - va_kernel_xip_pa_offset) :		\
-		((unsigned long)(_y) - va_kernel_pa_offset - XIP_OFFSET);	\
+		((unsigned long)(_y) - va_kernel_pa_offset);	\
 	})
 
 #define __va_to_pa_nodebug(x)	({						\

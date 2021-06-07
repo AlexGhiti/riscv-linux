@@ -17,14 +17,10 @@
 
 #ifdef CONFIG_XIP_KERNEL
 .macro XIP_FIXUP_OFFSET reg
-	REG_L t0, _xip_fixup
+	li t0, CONFIG_PHYS_RAM_BASE - CONFIG_XIP_PHYS_ADDR
 	add \reg, \reg, t0
 .endm
-_xip_fixup: .dword CONFIG_PHYS_RAM_BASE - CONFIG_XIP_PHYS_ADDR - XIP_OFFSET
-#else
-.macro XIP_FIXUP_OFFSET reg
-.endm
-#endif /* CONFIG_XIP_KERNEL */
+#endif
 
 __HEAD
 ENTRY(_start)
@@ -82,7 +78,6 @@ pe_head_start:
 relocate:
 	/* Relocate return address */
 	la a1, kernel_virt_addr
-	XIP_FIXUP_OFFSET a1
 	REG_L a1, 0(a1)
 	la a2, _start
 	sub a1, a1, a2
@@ -105,7 +100,6 @@ relocate:
 	 * to ensure the new translations are in use.
 	 */
 	la a0, trampoline_pg_dir
-	XIP_FIXUP_OFFSET a0
 	srl a0, a0, PAGE_SHIFT
 	or a0, a0, a1
 	sfence.vma
@@ -159,9 +153,7 @@ secondary_start_sbi:
 
 	slli a3, a0, LGREG
 	la a4, __cpu_up_stack_pointer
-	XIP_FIXUP_OFFSET a4
 	la a5, __cpu_up_task_pointer
-	XIP_FIXUP_OFFSET a5
 	add a4, a3, a4
 	add a5, a3, a5
 	REG_L sp, (a4)
@@ -173,7 +165,6 @@ secondary_start_common:
 #ifdef CONFIG_MMU
 	/* Enable virtual memory and relocate to virtual address */
 	la a0, swapper_pg_dir
-	XIP_FIXUP_OFFSET a0
 	call relocate
 #endif
 	call setup_trap_vector
@@ -253,14 +244,12 @@ pmp_done:
 	tail .Lsecondary_park
 .Lgood_cores:
 #endif
-
 #ifndef CONFIG_XIP_KERNEL
 	/* Pick one hart to run the main boot sequence */
 	la a3, hart_lottery
 	li a2, 1
 	amoadd.w a3, a2, (a3)
 	bnez a3, .Lsecondary_start
-
 #else
 	/* hart_lottery in flash contains a magic number */
 	la a3, hart_lottery
@@ -270,17 +259,49 @@ pmp_done:
 	amoswap.w t0, t1, (a2)
 	/* first time here if hart_lottery in RAM is not set */
 	beq t0, t1, .Lsecondary_start
-
-	la sp, _end + THREAD_SIZE
-	XIP_FIXUP_OFFSET sp
+	/*
+	 * Copy the kernel text and data to memory: the virtual mapping will be
+	 * established from there, and then we will jump back to using flash
+	 * resident text. This avoids to fixup global symbols when the code
+	 * is executed from flash and targets data in memory before the MMU is
+	 * enabled.
+	 * We must preserve a0, a1 and we have no stack yet (__memcpy does not
+	 * spill anything).
+	 */
 	mv s0, a0
-	call __copy_data
+	mv s1, a1
 
-	/* Restore a0 copy */
+	li a0, CONFIG_PHYS_RAM_BASE
+	la a1, _xiprom
+	la a2, _exiprom
+	sub a2, a2, a1
+	add a2, a2, 1
+	call __memcpy
+
+	li a0, CONFIG_PHYS_RAM_BASE + XIP_OFFSET
+	la a1, _sdata
+	la a2, _end
+	sub a2, a2, a1
+	add a2, a2, 1
+	call __memcpy
+
+	fence.i
+
 	mv a0, s0
-#endif
+	mv a1, s1
 
-#ifndef CONFIG_XIP_KERNEL
+	// TODO this could be a macro if a macro in assembly is indeed expanded
+	la a3, .next_ram
+	XIP_FIXUP_OFFSET a3
+	jalr ra, a3, 0
+.next_ram:
+	/* Reload the global pointer: we are now in memory! */
+.option push
+.option norelax
+	la gp, __global_pointer$
+.option pop
+
+#endif
 	/* Clear BSS for flat non-ELF images */
 	la a3, __bss_start
 	la a4, __bss_stop
@@ -290,18 +311,15 @@ clear_bss:
 	add a3, a3, RISCV_SZPTR
 	blt a3, a4, clear_bss
 clear_bss_done:
-#endif
 	/* Save hart ID and DTB physical address */
 	mv s0, a0
 	mv s1, a1
 
 	la a2, boot_cpu_hartid
-	XIP_FIXUP_OFFSET a2
 	REG_S a0, (a2)
 
 	/* Initialize page tables and relocate to virtual addresses */
 	la sp, init_thread_union + THREAD_SIZE
-	XIP_FIXUP_OFFSET sp
 #ifdef CONFIG_BUILTIN_DTB
 	la a0, __dtb_start
 #else
@@ -310,7 +328,6 @@ clear_bss_done:
 	call setup_vm
 #ifdef CONFIG_MMU
 	la a0, early_pg_dir
-	XIP_FIXUP_OFFSET a0
 	call relocate
 #endif /* CONFIG_MMU */
 
@@ -328,6 +345,19 @@ clear_bss_done:
 	tail start_kernel
 
 .Lsecondary_start:
+#ifdef CONFIG_XIP_KERNEL
+	/* Jump to memory, this will avoid any fixup */
+	// TODO this could be a macro if a macro in assembly is indeed expanded
+	la a3, .next_secondary_ram
+	XIP_FIXUP_OFFSET a3
+	jalr ra, a3, 0
+.next_secondary_ram:	
+	/* Reload the global pointer: we are now in memory! */
+.option push
+.option norelax
+	la gp, __global_pointer$
+.option pop
+#endif
 #ifdef CONFIG_SMP
 	/* Set trap vector to spin forever to help debug */
 	la a3, .Lsecondary_park
@@ -335,9 +365,7 @@ clear_bss_done:
 
 	slli a3, a0, LGREG
 	la a1, __cpu_up_stack_pointer
-	XIP_FIXUP_OFFSET a1
 	la a2, __cpu_up_task_pointer
-	XIP_FIXUP_OFFSET a2
 	add a1, a3, a1
 	add a2, a3, a2
 

@@ -32,7 +32,6 @@
 unsigned long kernel_virt_addr = KERNEL_LINK_ADDR;
 EXPORT_SYMBOL(kernel_virt_addr);
 #ifdef CONFIG_XIP_KERNEL
-#define kernel_virt_addr       (*((unsigned long *)XIP_FIXUP(&kernel_virt_addr)))
 extern char _xiprom[], _exiprom[];
 #endif
 
@@ -42,8 +41,8 @@ EXPORT_SYMBOL(empty_zero_page);
 
 extern char _start[];
 #define DTB_EARLY_BASE_VA      PGDIR_SIZE
-void *_dtb_early_va __initdata;
-uintptr_t _dtb_early_pa __initdata;
+void *dtb_early_va __initdata;
+uintptr_t dtb_early_pa __initdata;
 
 struct pt_alloc_ops {
 	pte_t *(*get_pte_virt)(phys_addr_t pa);
@@ -173,33 +172,18 @@ static void __init setup_bootmem(void)
 }
 
 #ifdef CONFIG_MMU
-static struct pt_alloc_ops _pt_ops __ro_after_init;
-
-#ifdef CONFIG_XIP_KERNEL
-#define pt_ops (*(struct pt_alloc_ops *)XIP_FIXUP(&_pt_ops))
-#else
-#define pt_ops _pt_ops
-#endif
+static struct pt_alloc_ops pt_ops __ro_after_init;
 
 /* Offset between linear mapping virtual address and kernel load address */
 unsigned long va_pa_offset __ro_after_init;
 EXPORT_SYMBOL(va_pa_offset);
-#ifdef CONFIG_XIP_KERNEL
-#define va_pa_offset   (*((unsigned long *)XIP_FIXUP(&va_pa_offset)))
-#endif
 /* Offset between kernel mapping virtual address and kernel load address */
 #ifdef CONFIG_64BIT
 unsigned long va_kernel_pa_offset;
 EXPORT_SYMBOL(va_kernel_pa_offset);
 #endif
-#ifdef CONFIG_XIP_KERNEL
-#define va_kernel_pa_offset    (*((unsigned long *)XIP_FIXUP(&va_kernel_pa_offset)))
-#endif
 unsigned long va_kernel_xip_pa_offset;
 EXPORT_SYMBOL(va_kernel_xip_pa_offset);
-#ifdef CONFIG_XIP_KERNEL
-#define va_kernel_xip_pa_offset        (*((unsigned long *)XIP_FIXUP(&va_kernel_xip_pa_offset)))
-#endif
 unsigned long pfn_base __ro_after_init;
 EXPORT_SYMBOL(pfn_base);
 
@@ -208,12 +192,6 @@ pgd_t trampoline_pg_dir[PTRS_PER_PGD] __page_aligned_bss;
 pte_t fixmap_pte[PTRS_PER_PTE] __page_aligned_bss;
 
 pgd_t early_pg_dir[PTRS_PER_PGD] __initdata __aligned(PAGE_SIZE);
-
-#ifdef CONFIG_XIP_KERNEL
-#define trampoline_pg_dir      ((pgd_t *)XIP_FIXUP(trampoline_pg_dir))
-#define fixmap_pte             ((pte_t *)XIP_FIXUP(fixmap_pte))
-#define early_pg_dir           ((pgd_t *)XIP_FIXUP(early_pg_dir))
-#endif /* CONFIG_XIP_KERNEL */
 
 void __set_fixmap(enum fixed_addresses idx, phys_addr_t phys, pgprot_t prot)
 {
@@ -289,12 +267,6 @@ pmd_t trampoline_pmd[PTRS_PER_PMD] __page_aligned_bss;
 pmd_t fixmap_pmd[PTRS_PER_PMD] __page_aligned_bss;
 pmd_t early_pmd[PTRS_PER_PMD] __initdata __aligned(PAGE_SIZE);
 pmd_t early_dtb_pmd[PTRS_PER_PMD] __initdata __aligned(PAGE_SIZE);
-
-#ifdef CONFIG_XIP_KERNEL
-#define trampoline_pmd ((pmd_t *)XIP_FIXUP(trampoline_pmd))
-#define fixmap_pmd     ((pmd_t *)XIP_FIXUP(fixmap_pmd))
-#define early_pmd      ((pmd_t *)XIP_FIXUP(early_pmd))
-#endif /* CONFIG_XIP_KERNEL */
 
 static pmd_t *__init get_pmd_virt_early(phys_addr_t pa)
 {
@@ -412,19 +384,6 @@ static uintptr_t __init best_map_size(phys_addr_t base, phys_addr_t size)
 	return PMD_SIZE;
 }
 
-#ifdef CONFIG_XIP_KERNEL
-/* called from head.S with MMU off */
-asmlinkage void __init __copy_data(void)
-{
-	void *from = (void *)(&_sdata);
-	void *end = (void *)(&_end);
-	void *to = (void *)CONFIG_PHYS_RAM_BASE;
-	size_t sz = (size_t)(end - from + 1);
-
-	memcpy(to, from, sz);
-}
-#endif
-
 #ifdef CONFIG_STRICT_KERNEL_RWX
 static __init pgprot_t pgprot_from_va(uintptr_t va)
 {
@@ -480,15 +439,9 @@ static __init pgprot_t pgprot_from_va(uintptr_t va)
 #endif
 
 uintptr_t load_pa, load_sz;
-#ifdef CONFIG_XIP_KERNEL
-#define load_pa        (*((uintptr_t *)XIP_FIXUP(&load_pa)))
-#define load_sz        (*((uintptr_t *)XIP_FIXUP(&load_sz)))
-#endif
 
 #ifdef CONFIG_XIP_KERNEL
 uintptr_t xiprom, xiprom_sz;
-#define xiprom_sz      (*((uintptr_t *)XIP_FIXUP(&xiprom_sz)))
-#define xiprom         (*((uintptr_t *)XIP_FIXUP(&xiprom)))
 
 static void __init create_kernel_page_table(pgd_t *pgdir, uintptr_t map_size,
 					    __always_unused bool early)
@@ -506,7 +459,7 @@ static void __init create_kernel_page_table(pgd_t *pgdir, uintptr_t map_size,
 	end_va = kernel_virt_addr + XIP_OFFSET + load_sz;
 	for (va = kernel_virt_addr + XIP_OFFSET; va < end_va; va += map_size)
 		create_pgd_mapping(pgdir, va,
-				   load_pa + (va - (kernel_virt_addr + XIP_OFFSET)),
+				   load_pa + (va - kernel_virt_addr),
 				   map_size, PAGE_KERNEL);
 }
 #else
@@ -522,6 +475,7 @@ static void __init create_kernel_page_table(pgd_t *pgdir, uintptr_t map_size, bo
 }
 #endif
 
+// TODO dtb_pa should be in flash!
 asmlinkage void __init setup_vm(uintptr_t dtb_pa)
 {
 	uintptr_t __maybe_unused pa;
@@ -616,7 +570,7 @@ asmlinkage void __init setup_vm(uintptr_t dtb_pa)
 	 * whereas dtb_early_va will be used before setup_vm_final installs
 	 * the linear mapping.
 	 */
-	dtb_early_va = kernel_mapping_pa_to_va(XIP_FIXUP(dtb_pa));
+	dtb_early_va = kernel_mapping_pa_to_va(dtb_pa);
 #else
 	dtb_early_va = __va(dtb_pa);
 #endif /* CONFIG_64BIT */
@@ -632,7 +586,7 @@ asmlinkage void __init setup_vm(uintptr_t dtb_pa)
 	dtb_early_va = (void *)DTB_EARLY_BASE_VA + (dtb_pa & (PGDIR_SIZE - 1));
 #else /* CONFIG_BUILTIN_DTB */
 #ifdef CONFIG_64BIT
-	dtb_early_va = kernel_mapping_pa_to_va(XIP_FIXUP(dtb_pa));
+	dtb_early_va = kernel_mapping_pa_to_va(dtb_pa);
 #else
 	dtb_early_va = __va(dtb_pa);
 #endif /* CONFIG_64BIT */
