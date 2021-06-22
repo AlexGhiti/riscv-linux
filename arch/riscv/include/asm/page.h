@@ -78,6 +78,14 @@ typedef struct page *pgtable_t;
 #define PTE_FMT "%08lx"
 #endif
 
+/*
+ * Early page table maps PAGE_OFFSET to load_pa, which may not be the memory
+ * base address and by default MIN_MEMBLOCK_ADDR is equal to __pa(PAGE_OFFSET)
+ * then memblock ignores memory below load_pa: we want this memory to get mapped
+ * as it may allow to use hugepages for linear mapping.
+ */
+#define MIN_MEMBLOCK_ADDR      0
+
 #ifdef CONFIG_MMU
 extern unsigned long va_pa_offset;
 #ifdef CONFIG_64BIT
@@ -105,7 +113,12 @@ extern unsigned long kernel_virt_addr;
 #define is_linear_mapping(x)	\
 	((x) >= PAGE_OFFSET && (x) < kernel_virt_addr)
 
-#define linear_mapping_pa_to_va(x)	((void *)((unsigned long)(x) + va_pa_offset))
+#define linear_mapping_pa_to_va(x)	({			\
+		/* Linear mapping was not yet established */	\
+		BUG_ON(va_pa_offset == -1ULL);			\
+		(void *)((unsigned long)(x) + va_pa_offset);	\
+	})
+
 #ifdef CONFIG_XIP_KERNEL
 #define kernel_mapping_pa_to_va(y)	({						\
 	unsigned long _y = y;								\
@@ -118,7 +131,11 @@ extern unsigned long kernel_virt_addr;
 #endif
 #define __pa_to_va_nodebug(x)		linear_mapping_pa_to_va(x)
 
-#define linear_mapping_va_to_pa(x)	((unsigned long)(x) - va_pa_offset)
+#define linear_mapping_va_to_pa(x)	({			\
+		/* Linear mapping was not yet established */	\
+		BUG_ON(va_pa_offset == -1ULL);			\
+		((unsigned long)(x) - va_pa_offset);		\
+	})
 #ifdef CONFIG_XIP_KERNEL
 #define kernel_mapping_va_to_pa(y) ({						\
 	unsigned long _y = y;							\

@@ -150,7 +150,7 @@ static void __init setup_bootmem(void)
 	phys_addr_t vmlinux_end = __pa_symbol(&_end);
 	phys_addr_t vmlinux_start = __pa_symbol(&_start);
 	phys_addr_t max_mapped_addr = __pa(~(ulong)0);
-	phys_addr_t dram_end;
+	phys_addr_t dram_start, dram_end;
 
 #ifdef CONFIG_XIP_KERNEL
 	vmlinux_start = __pa_symbol(&_sdata);
@@ -171,7 +171,29 @@ static void __init setup_bootmem(void)
 #endif
 	memblock_reserve(vmlinux_start, vmlinux_end - vmlinux_start);
 
+	dram_start = memblock_start_of_DRAM();
 	dram_end = memblock_end_of_DRAM();
+
+	/*
+	 * Make sure that virtual and physical addresses are at least aligned
+	 * on PMD_SIZE, even if we have to lose some memory (< PMD_SIZE)
+	 * otherwise the linear mapping would get mapped using PTE entries.
+	 */
+	if (dram_start & (PMD_SIZE - 1)) {
+	        uintptr_t next_dram_start;
+
+	        next_dram_start = (dram_start + PMD_SIZE - 1) & ~(PMD_SIZE - 1);
+	        memblock_remove(dram_start, next_dram_start - dram_start);
+	        dram_start = next_dram_start;
+	}
+
+	/*
+	 * This must be done before reserve_initrd_mem() which is the first
+	 * caller to __va().
+	 */
+	va_pa_offset = PAGE_OFFSET - dram_start;
+	pfn_base = PFN_DOWN(dram_start);
+
 	/*
 	 * memblock allocator is not aware of the fact that last 4K bytes of
 	 * the addressable memory can not be mapped because of IS_ERR_VALUE
@@ -181,7 +203,7 @@ static void __init setup_bootmem(void)
 	if (max_mapped_addr == (dram_end - 1))
 		memblock_set_current_limit(max_mapped_addr - 4096);
 
-	min_low_pfn = PFN_UP(memblock_start_of_DRAM());
+	min_low_pfn = PFN_UP(dram_start);
 	max_low_pfn = max_pfn = PFN_DOWN(dram_end);
 
 	dma32_phys_limit = min(4UL * SZ_1G, (unsigned long)PFN_PHYS(max_low_pfn));
@@ -211,8 +233,8 @@ static struct pt_alloc_ops _pt_ops __initdata;
 #define pt_ops _pt_ops
 #endif
 
-/* Offset between linear mapping virtual address and kernel load address */
-unsigned long va_pa_offset __ro_after_init;
+/* Offset between linear mapping virtual address and start of DRAM */
+unsigned long va_pa_offset __ro_after_init = -1ULL;
 EXPORT_SYMBOL(va_pa_offset);
 #ifdef CONFIG_XIP_KERNEL
 #define va_pa_offset   (*((unsigned long *)XIP_FIXUP(&va_pa_offset)))
@@ -579,13 +601,11 @@ asmlinkage void __init setup_vm(uintptr_t dtb_pa)
 	load_sz = (uintptr_t)(&_end) - load_pa;
 #endif
 
-	va_pa_offset = PAGE_OFFSET - load_pa;
 #ifdef CONFIG_64BIT
 	va_kernel_pa_offset = kernel_virt_addr - load_pa;
+#else
+	va_pa_offset = PAGE_OFFSET - load_pa;
 #endif
-
-	pfn_base = PFN_DOWN(load_pa);
-
 	/*
 	 * Enforce boot alignment requirements of RV32 and
 	 * RV64 by only allowing PMD or PGD mappings.
