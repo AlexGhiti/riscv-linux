@@ -567,36 +567,35 @@ static uintptr_t xiprom_sz __initdata;
 #define xiprom_sz      (*((uintptr_t *)XIP_FIXUP(&xiprom_sz)))
 #define xiprom         (*((uintptr_t *)XIP_FIXUP(&xiprom)))
 
-static void __init create_kernel_page_table(pgd_t *pgdir, uintptr_t map_size,
+static void __init create_kernel_page_table(pgd_t *pgdir,
 					    __always_unused bool early)
 {
 	uintptr_t va, end_va;
 
 	/* Map the flash resident part */
 	end_va = kernel_virt_addr + xiprom_sz;
-	for (va = kernel_virt_addr; va < end_va; va += map_size)
+	for (va = kernel_virt_addr; va < end_va; va += PMD_SIZE)
 		create_pgd_mapping(pgdir, va,
 				   xiprom + (va - kernel_virt_addr),
-				   map_size, PAGE_KERNEL_EXEC);
+				   PMD_SIZE, PAGE_KERNEL_EXEC);
 
 	/* Map the data in RAM */
 	end_va = kernel_virt_addr + XIP_OFFSET + load_sz;
-	for (va = kernel_virt_addr + XIP_OFFSET; va < end_va; va += map_size)
+	for (va = kernel_virt_addr + XIP_OFFSET; va < end_va; va += PMD_SIZE)
 		create_pgd_mapping(pgdir, va,
 				   load_pa + (va - (kernel_virt_addr + XIP_OFFSET)),
-				   map_size, PAGE_KERNEL);
+				   PMD_SIZE, PAGE_KERNEL);
 }
 #else
-static void __init create_kernel_page_table(pgd_t *pgdir, uintptr_t map_size,
-					    bool early)
+static void __init create_kernel_page_table(pgd_t *pgdir, bool early)
 {
 	uintptr_t va, end_va;
 
 	end_va = kernel_virt_addr + load_sz;
-	for (va = kernel_virt_addr; va < end_va; va += map_size)
+	for (va = kernel_virt_addr; va < end_va; va += PMD_SIZE)
 		create_pgd_mapping(pgdir, va,
 				   load_pa + (va - kernel_virt_addr),
-				   map_size,
+				   PMD_SIZE,
 				   early ?
 					PAGE_KERNEL_EXEC : pgprot_from_va(va));
 }
@@ -605,7 +604,6 @@ static void __init create_kernel_page_table(pgd_t *pgdir, uintptr_t map_size,
 asmlinkage void __init setup_vm(uintptr_t dtb_pa)
 {
 	uintptr_t __maybe_unused pa;
-	uintptr_t map_size;
 #ifndef __PAGETABLE_PMD_FOLDED
 	pmd_t fix_bmap_spmd, fix_bmap_epmd;
 #endif
@@ -630,15 +628,10 @@ asmlinkage void __init setup_vm(uintptr_t dtb_pa)
 	va_pa_offset = PAGE_OFFSET - load_pa;
 	pfn_base = PFN_DOWN(load_pa);
 #endif
-	/*
-	 * Enforce boot alignment requirements of RV32 and
-	 * RV64 by only allowing PMD or PGD mappings.
-	 */
-	map_size = best_map_size(load_pa, PAGE_OFFSET, MAX_EARLY_MAPPING_SIZE);
 
 	/* Sanity check alignment and size */
 	BUG_ON((PAGE_OFFSET % PGDIR_SIZE) != 0);
-	BUG_ON((load_pa % map_size) != 0);
+	BUG_ON((load_pa % PMD_SIZE) != 0);
 
 	pt_ops.alloc_pte = alloc_pte_early;
 	pt_ops.get_pte_virt = get_pte_virt_early;
@@ -675,7 +668,7 @@ asmlinkage void __init setup_vm(uintptr_t dtb_pa)
 	 * us to reach paging_init(). We map all memory banks later
 	 * in setup_vm_final() below.
 	 */
-	create_kernel_page_table(early_pg_dir, map_size, true);
+	create_kernel_page_table(early_pg_dir, true);
 
 #ifndef __PAGETABLE_PMD_FOLDED
 	/* Setup early PMD for DTB */
@@ -820,7 +813,7 @@ static void __init setup_vm_final(void)
 
 #ifdef CONFIG_64BIT
 	/* Map the kernel */
-	create_kernel_page_table(swapper_pg_dir, PMD_SIZE, false);
+	create_kernel_page_table(swapper_pg_dir, false);
 #endif
 
 	/* Clear fixmap PTE and PMD mappings */
