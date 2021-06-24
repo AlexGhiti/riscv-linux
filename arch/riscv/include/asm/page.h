@@ -78,6 +78,7 @@ typedef struct page *pgtable_t;
 #define PTE_FMT "%08lx"
 #endif
 
+#ifdef CONFIG_64BIT
 /*
  * Early page table maps PAGE_OFFSET to load_pa, which may not be the memory
  * base address and by default MIN_MEMBLOCK_ADDR is equal to __pa(PAGE_OFFSET)
@@ -85,6 +86,7 @@ typedef struct page *pgtable_t;
  * as it may allow to use hugepages for linear mapping.
  */
 #define MIN_MEMBLOCK_ADDR      0
+#endif
 
 #ifdef CONFIG_MMU
 extern unsigned long va_pa_offset;
