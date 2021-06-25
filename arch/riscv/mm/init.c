@@ -147,8 +147,8 @@ early_param("mem", early_mem);
 
 static void __init setup_bootmem(void)
 {
-	phys_addr_t vmlinux_end = __pa_symbol(&_end);
 	phys_addr_t vmlinux_start = __pa_symbol(&_start);
+	phys_addr_t vmlinux_end = __pa_symbol(&_end) - 1;
 	phys_addr_t max_mapped_addr = __pa(~(ulong)0);
 	phys_addr_t dram_start, dram_end;
 
