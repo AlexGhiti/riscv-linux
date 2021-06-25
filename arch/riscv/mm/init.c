@@ -147,30 +147,14 @@ early_param("mem", early_mem);
 
 static void __init setup_bootmem(void)
 {
-	phys_addr_t vmlinux_start = __pa_symbol(&_start);
-	phys_addr_t vmlinux_end = __pa_symbol(&_end) - 1;
-	phys_addr_t max_mapped_addr = __pa(~(ulong)0);
+	phys_addr_t vmlinux_start;
+	phys_addr_t vmlinux_end;
+	phys_addr_t max_mapped_addr;
 	phys_addr_t dram_start, dram_end;
-
-#ifdef CONFIG_XIP_KERNEL
-	vmlinux_start = __pa_symbol(&_sdata);
-#endif
 
 	memblock_enforce_memory_limit(memory_limit);
 
-	/*
-	 * Reserve from the start of the kernel to the end of the kernel
-	 */
-#if defined(CONFIG_64BIT) && defined(CONFIG_STRICT_KERNEL_RWX)
-	/*
-	 * Make sure we align the reservation on PMD_SIZE since we will
-	 * map the kernel in the linear mapping as read-only: we do not want
-	 * any allocation to happen between _end and the next pmd aligned page.
-	 */
-	vmlinux_end = (vmlinux_end + PMD_SIZE - 1) & PMD_MASK;
-#endif
-	memblock_reserve(vmlinux_start, vmlinux_end - vmlinux_start);
-
+	// TODO call that init_linear_mapping ?!
 	dram_start = memblock_start_of_DRAM();
 	dram_end = memblock_end_of_DRAM();
 
@@ -187,14 +171,31 @@ static void __init setup_bootmem(void)
 	        dram_start = next_dram_start;
 	}
 
-#ifdef CONFIG_64BIT
 	/*
-	 * This must be done before reserve_initrd_mem() which is the first
-	 * caller to __va().
+	 * This must be done before any use of __va/__pa on addresses outside
+	 * the kernel mapping.
 	 */
-	va_pa_offset = PAGE_OFFSET - dram_start;
+	va_linear_pa_offset = PAGE_OFFSET - dram_start;
 	pfn_base = PFN_DOWN(dram_start);
+	// TODO end of call that
+
+	vmlinux_start = IS_ENABLED(CONFIG_XIP_KERNEL) ?
+				__pa_symbol(&_sdata) : __pa_symbol(&_start);
+	vmlinux_end = __pa_symbol((void *)&_end - 1);
+	max_mapped_addr = __pa(~(ulong)0);
+
+	/*
+	 * Reserve from the start of the kernel to the end of the kernel
+	 */
+#if defined(CONFIG_64BIT) && defined(CONFIG_STRICT_KERNEL_RWX)
+	/*
+	 * Make sure we align the reservation on PMD_SIZE since we will
+	 * map the kernel in the linear mapping as read-only: we do not want
+	 * any allocation to happen between _end and the next pmd aligned page.
+	 */
+	vmlinux_end = (vmlinux_end + PMD_SIZE - 1) & PMD_MASK;
 #endif
+	memblock_reserve(vmlinux_start, vmlinux_end - vmlinux_start);
 
 	/*
 	 * memblock allocator is not aware of the fact that last 4K bytes of
@@ -236,16 +237,14 @@ static struct pt_alloc_ops _pt_ops __initdata;
 #endif
 
 /* Offset between linear mapping virtual address and start of DRAM */
-unsigned long va_pa_offset __ro_after_init = -1UL;
-EXPORT_SYMBOL(va_pa_offset);
+unsigned long va_linear_pa_offset __ro_after_init = -1UL;
+EXPORT_SYMBOL(va_linear_pa_offset);
 #ifdef CONFIG_XIP_KERNEL
-#define va_pa_offset   (*((unsigned long *)XIP_FIXUP(&va_pa_offset)))
+#define va_linear_pa_offset   (*((unsigned long *)XIP_FIXUP(&va_linear_pa_offset)))
 #endif
 /* Offset between kernel mapping virtual address and kernel load address */
-#ifdef CONFIG_64BIT
 unsigned long va_kernel_pa_offset __ro_after_init;
 EXPORT_SYMBOL(va_kernel_pa_offset);
-#endif
 #ifdef CONFIG_XIP_KERNEL
 #define va_kernel_pa_offset    (*((unsigned long *)XIP_FIXUP(&va_kernel_pa_offset)))
 #endif
@@ -633,7 +632,7 @@ static void __init create_linear_page_table(void)
 			 * with the wrong permissions.
 			 */
 			if (IS_ENABLED(CONFIG_32BIT) ||
-					va_intersects_kernel_lm_alias(va, remaining_size))
+			    va_intersects_kernel_lm_alias(va, remaining_size))
 				map_size = PMD_SIZE;
 			else
 				map_size = best_map_size(pa, va, remaining_size);
@@ -667,13 +666,8 @@ asmlinkage void __init setup_vm(uintptr_t dtb_pa)
 	load_sz = (uintptr_t)(&_end) - load_pa;
 #endif
 
-#ifdef CONFIG_64BIT
+	/* Early page table only maps the kernel */
 	va_kernel_pa_offset = kernel_virt_addr - load_pa;
-#else
-	// TODO init_linear_mapping ?
-	va_pa_offset = PAGE_OFFSET - load_pa;
-	pfn_base = PFN_DOWN(load_pa);
-#endif
 
 	/* Sanity check alignment and size */
 	BUG_ON((PAGE_OFFSET % PGDIR_SIZE) != 0);
@@ -746,7 +740,7 @@ asmlinkage void __init setup_vm(uintptr_t dtb_pa)
 			   pa + PGDIR_SIZE, PGDIR_SIZE, PAGE_KERNEL);
 	dtb_early_va = (void *)DTB_EARLY_BASE_VA + (dtb_pa & (PGDIR_SIZE - 1));
 #else /* CONFIG_BUILTIN_DTB */
-	dtb_early_va = __va(dtb_pa);
+	dtb_early_va = kernel_mapping_pa_to_va(XIP_FIXUP(dtb_pa));
 #endif /* CONFIG_BUILTIN_DTB */
 #endif
 	dtb_early_pa = dtb_pa;
@@ -799,6 +793,7 @@ static void __init setup_vm_final(void)
 			   __pa_symbol(fixmap_pgd_next),
 			   PGDIR_SIZE, PAGE_TABLE);
 
+	/* Map the linear mapping */
 	create_linear_page_table();
 
 #ifdef CONFIG_64BIT

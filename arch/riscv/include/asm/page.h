@@ -89,10 +89,8 @@ typedef struct page *pgtable_t;
 #endif
 
 #ifdef CONFIG_MMU
-extern unsigned long va_pa_offset;
-#ifdef CONFIG_64BIT
+extern unsigned long va_linear_pa_offset;
 extern unsigned long va_kernel_pa_offset;
-#endif
 #ifdef CONFIG_XIP_KERNEL
 extern unsigned long va_kernel_xip_pa_offset;
 #endif
@@ -100,7 +98,7 @@ extern unsigned long pfn_base;
 extern uintptr_t load_sz;
 #define ARCH_PFN_OFFSET		(pfn_base)
 #else
-#define va_pa_offset		0
+#define va_linear_pa_offset		0
 #ifdef CONFIG_64BIT
 #define va_kernel_pa_offset	0
 #endif
@@ -109,16 +107,20 @@ extern uintptr_t load_sz;
 
 extern unsigned long kernel_virt_addr;
 
-#ifdef CONFIG_64BIT
 #define is_kernel_mapping(x)	\
 	((x) >= kernel_virt_addr && (x) < (kernel_virt_addr + load_sz))
+#ifdef CONFIG_64BIT
 #define is_linear_mapping(x)	\
 	((x) >= PAGE_OFFSET && (x) < kernel_virt_addr)
+#else
+#define is_linear_mapping(x)	\
+	((x) >= PAGE_OFFSET)
+#endif
 
 #define linear_mapping_pa_to_va(x)	({			\
 		/* Linear mapping was not yet established */	\
-		BUG_ON(va_pa_offset == -1ULL);			\
-		(void *)((unsigned long)(x) + va_pa_offset);	\
+		BUG_ON(va_linear_pa_offset == -1UL);			\
+		(void *)((unsigned long)(x) + va_linear_pa_offset);	\
 	})
 
 #ifdef CONFIG_XIP_KERNEL
@@ -135,8 +137,8 @@ extern unsigned long kernel_virt_addr;
 
 #define linear_mapping_va_to_pa(x)	({			\
 		/* Linear mapping was not yet established */	\
-		BUG_ON(va_pa_offset == -1ULL);			\
-		((unsigned long)(x) - va_pa_offset);		\
+		BUG_ON(va_linear_pa_offset == -1UL);			\
+		((unsigned long)(x) - va_linear_pa_offset);		\
 	})
 #ifdef CONFIG_XIP_KERNEL
 #define kernel_mapping_va_to_pa(y) ({						\
@@ -150,18 +152,9 @@ extern unsigned long kernel_virt_addr;
 #endif
 #define __va_to_pa_nodebug(x)	({						\
 	unsigned long _x = x;							\
-	is_linear_mapping(_x) ?							\
-		linear_mapping_va_to_pa(_x) : kernel_mapping_va_to_pa(_x);	\
+	is_kernel_mapping(_x) ?							\
+		kernel_mapping_va_to_pa(_x) : linear_mapping_va_to_pa(_x);	\
 	})
-#else /* CONFIG_64BIT */
-#define is_kernel_mapping(x)	\
-	((x) >= kernel_virt_addr && (x) < (kernel_virt_addr + load_sz))
-#define is_linear_mapping(x)	\
-	((x) >= PAGE_OFFSET)
-
-#define __pa_to_va_nodebug(x)  ((void *)((unsigned long) (x) + va_pa_offset))
-#define __va_to_pa_nodebug(x)  ((unsigned long)(x) - va_pa_offset)
-#endif /* CONFIG_64BIT */
 
 #ifdef CONFIG_DEBUG_VIRTUAL
 extern phys_addr_t __virt_to_phys(unsigned long x);
