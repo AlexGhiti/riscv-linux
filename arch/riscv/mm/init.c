@@ -614,7 +614,7 @@ asmlinkage void __init setup_vm(uintptr_t dtb_pa)
 	 * The last 4K bytes of the addressable memory can not be mapped because
 	 * of IS_ERR_VALUE macro.
 	 */
-	BUG_ON((kernel_virt_addr + load_sz) > ADDRESS_SPACE_END - SZ_4K);
+	BUG_ON((kernel_map.virt_addr + load_sz) > ADDRESS_SPACE_END - SZ_4K);
 #endif
 
 	pt_ops.alloc_pte = alloc_pte_early;
