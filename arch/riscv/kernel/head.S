@@ -104,12 +104,21 @@ relocate:
 	 * full fence here because setup_vm() just wrote these PTEs and we need
 	 * to ensure the new translations are in use.
 	 */
-	la a0, trampoline_pg_dir
-	XIP_FIXUP_OFFSET a0
-	srl a0, a0, PAGE_SHIFT
-	or a0, a0, a1
+	#la a0, trampoline_pg_dir
+	#XIP_FIXUP_OFFSET a0
+	#srl a0, a0, PAGE_SHIFT
+	#or a0, a0, a1
 	sfence.vma
-	csrw CSR_SATP, a0
+	#csrw CSR_SATP, a0
+
+	/*
+	 * Switch to kernel page tables.  A full fence is necessary in order to
+	 * avoid using the trampoline translations, which are only correct for
+	 * the first superpage.  Fetching the fence is guarnteed to work
+	 * because that first superpage is translated the same way.
+	 */
+	csrw CSR_SATP, a2
+	sfence.vma
 .align 2
 1:
 	/* Set trap vector to spin forever to help debug */
@@ -121,15 +130,6 @@ relocate:
 .option norelax
 	la gp, __global_pointer$
 .option pop
-
-	/*
-	 * Switch to kernel page tables.  A full fence is necessary in order to
-	 * avoid using the trampoline translations, which are only correct for
-	 * the first superpage.  Fetching the fence is guarnteed to work
-	 * because that first superpage is translated the same way.
-	 */
-	csrw CSR_SATP, a2
-	sfence.vma
 
 	ret
 #endif /* CONFIG_MMU */
@@ -302,6 +302,7 @@ clear_bss_done:
 	/* Initialize page tables and relocate to virtual addresses */
 	la sp, init_thread_union + THREAD_SIZE
 	XIP_FIXUP_OFFSET sp
+	call setup_kernel_mapping
 #ifdef CONFIG_BUILTIN_DTB
 	la a0, __dtb_start
 #else

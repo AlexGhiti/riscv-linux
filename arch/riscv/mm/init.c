@@ -240,7 +240,7 @@ pgd_t swapper_pg_dir[PTRS_PER_PGD] __page_aligned_bss;
 pgd_t trampoline_pg_dir[PTRS_PER_PGD] __page_aligned_bss;
 static pte_t fixmap_pte[PTRS_PER_PTE] __page_aligned_bss;
 
-pgd_t early_pg_dir[PTRS_PER_PGD] __initdata __aligned(PAGE_SIZE);
+extern pgd_t early_pg_dir[PTRS_PER_PGD];// __initdata __aligned(PAGE_SIZE);
 static pmd_t early_dtb_pmd[PTRS_PER_PMD] __initdata __aligned(PAGE_SIZE);
 
 #ifdef CONFIG_XIP_KERNEL
@@ -321,7 +321,7 @@ static void __init create_pte_mapping(pte_t *ptep,
 
 static pmd_t trampoline_pmd[PTRS_PER_PMD] __page_aligned_bss;
 static pmd_t fixmap_pmd[PTRS_PER_PMD] __page_aligned_bss;
-static pmd_t early_pmd[PTRS_PER_PMD] __initdata __aligned(PAGE_SIZE);
+extern pmd_t early_pmd[PTRS_PER_PMD];// __initdata __aligned(PAGE_SIZE);
 
 #ifdef CONFIG_XIP_KERNEL
 #define trampoline_pmd ((pmd_t *)XIP_FIXUP(trampoline_pmd))
@@ -582,13 +582,12 @@ static void __init create_fdt_early_page_table(pgd_t *pgdir, uintptr_t dtb_pa)
 	dtb_early_pa = dtb_pa;
 }
 
-asmlinkage void __init setup_vm(uintptr_t dtb_pa)
+#ifdef CONFIG_XIP_KERNEL
+asmlinkage void __init setup_kernel_mapping(void)
 {
-	pmd_t __maybe_unused fix_bmap_spmd, fix_bmap_epmd;
-
+	// TODO this is copied, no good.
 	kernel_map.virt_addr = KERNEL_LINK_ADDR;
 
-#ifdef CONFIG_XIP_KERNEL
 	kernel_map.xiprom = (uintptr_t)CONFIG_XIP_PHYS_ADDR;
 	kernel_map.xiprom_sz = (uintptr_t)(&_exiprom) - (uintptr_t)(&_xiprom);
 
@@ -597,25 +596,61 @@ asmlinkage void __init setup_vm(uintptr_t dtb_pa)
 	kernel_map.size = (uintptr_t)(&_end) - (uintptr_t)(&_sdata);
 
 	kernel_map.va_kernel_xip_pa_offset = kernel_map.virt_addr - kernel_map.xiprom;
-#else
-	kernel_map.phys_addr = (uintptr_t)(&_start);
-	kernel_map.size = (uintptr_t)(&_end) - kernel_map.phys_addr;
-#endif
+
+	// TODO this is copied, no good.
 	kernel_map.va_pa_offset = PAGE_OFFSET - kernel_map.phys_addr;
 	kernel_map.va_kernel_pa_offset = kernel_map.virt_addr - kernel_map.phys_addr;
 
 	pfn_base = PFN_DOWN(kernel_map.phys_addr);
 
-	/* Sanity check alignment and size */
-	BUG_ON((PAGE_OFFSET % PGDIR_SIZE) != 0);
 	BUG_ON((kernel_map.phys_addr % PMD_SIZE) != 0);
 #ifdef CONFIG_64BIT
 	/*
 	 * The last 4K bytes of the addressable memory can not be mapped because
 	 * of IS_ERR_VALUE macro.
 	 */
-	BUG_ON((kernel_map.virt_addr + load_sz) > ADDRESS_SPACE_END - SZ_4K);
+	BUG_ON((kernel_map.virt_addr + kernel_map.size) > ADDRESS_SPACE_END - SZ_4K);
 #endif
+}
+
+asmlinkage void __init setup_vm(__always_unused uintptr_t dtb_pa)
+{
+	/*
+	 * Nothing must be done here since the early page table is generated at
+	 * compile-time.
+	 */
+}
+#else
+asmlinkage void __init setup_kernel_mapping(void)
+{
+	// TODO this is copied, no good.
+	kernel_map.virt_addr = KERNEL_LINK_ADDR;
+
+	kernel_map.phys_addr = (uintptr_t)(&_start);
+	kernel_map.size = (uintptr_t)(&_end) - kernel_map.phys_addr;
+
+	// TODO this is copied, no good.
+	kernel_map.va_pa_offset = PAGE_OFFSET - kernel_map.phys_addr;
+	kernel_map.va_kernel_pa_offset = kernel_map.virt_addr - kernel_map.phys_addr;
+
+	pfn_base = PFN_DOWN(kernel_map.phys_addr);
+
+	BUG_ON((kernel_map.phys_addr % PMD_SIZE) != 0);
+#ifdef CONFIG_64BIT
+	/*
+	 * The last 4K bytes of the addressable memory can not be mapped because
+	 * of IS_ERR_VALUE macro.
+	 */
+	BUG_ON((kernel_map.virt_addr + kernel_map.size) > ADDRESS_SPACE_END - SZ_4K);
+#endif
+}
+
+asmlinkage void __init setup_vm(uintptr_t dtb_pa)
+{
+	pmd_t __maybe_unused fix_bmap_spmd, fix_bmap_epmd;
+
+	/* Sanity check alignment and size */
+	BUILD_BUG_ON((PAGE_OFFSET % PGDIR_SIZE) != 0);
 
 	pt_ops.alloc_pte = alloc_pte_early;
 	pt_ops.get_pte_virt = get_pte_virt_early;
@@ -623,70 +658,71 @@ asmlinkage void __init setup_vm(uintptr_t dtb_pa)
 	pt_ops.alloc_pmd = alloc_pmd_early;
 	pt_ops.get_pmd_virt = get_pmd_virt_early;
 #endif
-	/* Setup early PGD for fixmap */
-	create_pgd_mapping(early_pg_dir, FIXADDR_START,
-			   (uintptr_t)fixmap_pgd_next, PGDIR_SIZE, PAGE_TABLE);
-
-#ifndef __PAGETABLE_PMD_FOLDED
-	/* Setup fixmap PMD */
-	create_pmd_mapping(fixmap_pmd, FIXADDR_START,
-			   (uintptr_t)fixmap_pte, PMD_SIZE, PAGE_TABLE);
-	/* Setup trampoline PGD and PMD */
-	create_pgd_mapping(trampoline_pg_dir, kernel_map.virt_addr,
-			   (uintptr_t)trampoline_pmd, PGDIR_SIZE, PAGE_TABLE);
-#ifdef CONFIG_XIP_KERNEL
-	create_pmd_mapping(trampoline_pmd, kernel_map.virt_addr,
-			   kernel_map.xiprom, PMD_SIZE, PAGE_KERNEL_EXEC);
-#else
-	create_pmd_mapping(trampoline_pmd, kernel_map.virt_addr,
-			   kernel_map.phys_addr, PMD_SIZE, PAGE_KERNEL_EXEC);
-#endif
-#else
-	/* Setup trampoline PGD */
-	create_pgd_mapping(trampoline_pg_dir, kernel_map.virt_addr,
-			   kernel_map.phys_addr, PGDIR_SIZE, PAGE_KERNEL_EXEC);
-#endif
-
-	/*
-	 * Setup early PGD covering entire kernel which will allow
-	 * us to reach paging_init(). We map all memory banks later
-	 * in setup_vm_final() below.
-	 */
-	create_kernel_page_table(early_pg_dir, true);
-
-	/* Setup early mapping for FDT early scan */
-	create_fdt_early_page_table(early_pg_dir, dtb_pa);
-
-	/*
-	 * Bootime fixmap only can handle PMD_SIZE mapping. Thus, boot-ioremap
-	 * range can not span multiple pmds.
-	 */
-	BUILD_BUG_ON((__fix_to_virt(FIX_BTMAP_BEGIN) >> PMD_SHIFT)
-		     != (__fix_to_virt(FIX_BTMAP_END) >> PMD_SHIFT));
-
-#ifndef __PAGETABLE_PMD_FOLDED
-	/*
-	 * Early ioremap fixmap is already created as it lies within first 2MB
-	 * of fixmap region. We always map PMD_SIZE. Thus, both FIX_BTMAP_END
-	 * FIX_BTMAP_BEGIN should lie in the same pmd. Verify that and warn
-	 * the user if not.
-	 */
-	fix_bmap_spmd = fixmap_pmd[pmd_index(__fix_to_virt(FIX_BTMAP_BEGIN))];
-	fix_bmap_epmd = fixmap_pmd[pmd_index(__fix_to_virt(FIX_BTMAP_END))];
-	if (pmd_val(fix_bmap_spmd) != pmd_val(fix_bmap_epmd)) {
-		WARN_ON(1);
-		pr_warn("fixmap btmap start [%08lx] != end [%08lx]\n",
-			pmd_val(fix_bmap_spmd), pmd_val(fix_bmap_epmd));
-		pr_warn("fix_to_virt(FIX_BTMAP_BEGIN): %08lx\n",
-			fix_to_virt(FIX_BTMAP_BEGIN));
-		pr_warn("fix_to_virt(FIX_BTMAP_END):   %08lx\n",
-			fix_to_virt(FIX_BTMAP_END));
-
-		pr_warn("FIX_BTMAP_END:       %d\n", FIX_BTMAP_END);
-		pr_warn("FIX_BTMAP_BEGIN:     %d\n", FIX_BTMAP_BEGIN);
-	}
-#endif
+//	/* Setup early PGD for fixmap */
+//	create_pgd_mapping(early_pg_dir, FIXADDR_START,
+//			   (uintptr_t)fixmap_pgd_next, PGDIR_SIZE, PAGE_TABLE);
+//
+//#ifndef __PAGETABLE_PMD_FOLDED
+//	/* Setup fixmap PMD */
+//	create_pmd_mapping(fixmap_pmd, FIXADDR_START,
+//			   (uintptr_t)fixmap_pte, PMD_SIZE, PAGE_TABLE);
+//	/* Setup trampoline PGD and PMD */
+//	create_pgd_mapping(trampoline_pg_dir, kernel_map.virt_addr,
+//			   (uintptr_t)trampoline_pmd, PGDIR_SIZE, PAGE_TABLE);
+//#ifdef CONFIG_XIP_KERNEL
+//	create_pmd_mapping(trampoline_pmd, kernel_map.virt_addr,
+//			   kernel_map.xiprom, PMD_SIZE, PAGE_KERNEL_EXEC);
+//#else
+//	create_pmd_mapping(trampoline_pmd, kernel_map.virt_addr,
+//			   kernel_map.phys_addr, PMD_SIZE, PAGE_KERNEL_EXEC);
+//#endif
+//#else
+//	/* Setup trampoline PGD */
+//	create_pgd_mapping(trampoline_pg_dir, kernel_map.virt_addr,
+//			   kernel_map.phys_addr, PGDIR_SIZE, PAGE_KERNEL_EXEC);
+//#endif
+//
+//	/*
+//	 * Setup early PGD covering entire kernel which will allow
+//	 * us to reach paging_init(). We map all memory banks later
+//	 * in setup_vm_final() below.
+//	 */
+//	create_kernel_page_table(early_pg_dir, true);
+//
+//	/* Setup early mapping for FDT early scan */
+//	create_fdt_early_page_table(early_pg_dir, dtb_pa);
+//
+//	/*
+//	 * Bootime fixmap only can handle PMD_SIZE mapping. Thus, boot-ioremap
+//	 * range can not span multiple pmds.
+//	 */
+//	BUILD_BUG_ON((__fix_to_virt(FIX_BTMAP_BEGIN) >> PMD_SHIFT)
+//		     != (__fix_to_virt(FIX_BTMAP_END) >> PMD_SHIFT));
+//
+//#ifndef __PAGETABLE_PMD_FOLDED
+//	/*
+//	 * Early ioremap fixmap is already created as it lies within first 2MB
+//	 * of fixmap region. We always map PMD_SIZE. Thus, both FIX_BTMAP_END
+//	 * FIX_BTMAP_BEGIN should lie in the same pmd. Verify that and warn
+//	 * the user if not.
+//	 */
+//	fix_bmap_spmd = fixmap_pmd[pmd_index(__fix_to_virt(FIX_BTMAP_BEGIN))];
+//	fix_bmap_epmd = fixmap_pmd[pmd_index(__fix_to_virt(FIX_BTMAP_END))];
+//	if (pmd_val(fix_bmap_spmd) != pmd_val(fix_bmap_epmd)) {
+//		WARN_ON(1);
+//		pr_warn("fixmap btmap start [%08lx] != end [%08lx]\n",
+//			pmd_val(fix_bmap_spmd), pmd_val(fix_bmap_epmd));
+//		pr_warn("fix_to_virt(FIX_BTMAP_BEGIN): %08lx\n",
+//			fix_to_virt(FIX_BTMAP_BEGIN));
+//		pr_warn("fix_to_virt(FIX_BTMAP_END):   %08lx\n",
+//			fix_to_virt(FIX_BTMAP_END));
+//
+//		pr_warn("FIX_BTMAP_END:       %d\n", FIX_BTMAP_END);
+//		pr_warn("FIX_BTMAP_BEGIN:     %d\n", FIX_BTMAP_BEGIN);
+//	}
+//#endif
 }
+#endif
 
 static void __init setup_vm_final(void)
 {

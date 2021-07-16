@@ -85,6 +85,10 @@ SECTIONS
 	/* Start of init data section */
 	__init_data_begin = .;
 	INIT_DATA_SECTION(16)
+
+	. = ALIGN(PAGE_SIZE);
+#include "early-page-table.lds.S"
+	
 	.exit.data :
 	{
 		EXIT_DATA
