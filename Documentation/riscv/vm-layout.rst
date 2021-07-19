@@ -10,6 +10,21 @@ Virtual Memory Layout on RISC-V Linux
 This document describes the virtual memory layout used by the RISC-V Linux
 Kernel.
 
+Kernel mapping/Linear mapping
+=============================
+
+Early page table
+----------------
+
+The early page table (`early_pg_dir`) is populated very soon in the boot process (in `setup_vm`) and used as a temporary mapping until all the memory is discovered: `early_pg_dir` then only establishes a mapping for the *kernel* and not the *linear* mapping (Note: in 32-bit, the kernel mapping happens to lie in the linear mapping, but not in 64-bit).
+This comes with a strong implication: before all the memory in the system is discovered, the address conversions macros will only work on *kernel* addresses, any attempt to use those macros on an address that lies in the linear mapping will trigger a BUG (concretely, those macros can be used when `phys_ram_base` is set).
+
+Init page table
+---------------
+
+The init page table (`swapper_pg_dir`) contains all the kernel mappings used throughout the life of the kernel. The linear and the kernel mappings are installed in `setup_vm_final` while modules, BPF, vmalloc mappings and others will be added as the kernel needs them.
+
+
 RISC-V Linux Kernel 32bit
 =========================
 
