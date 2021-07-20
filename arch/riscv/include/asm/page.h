@@ -114,7 +114,7 @@ extern phys_addr_t phys_ram_base;
 #define linear_mapping_pa_to_va(x)	((void *)((unsigned long)(x) + kernel_map.va_pa_offset))
 #define kernel_mapping_pa_to_va(y)	({						\
 	unsigned long _y = y;								\
-	(IS_ENABLED(CONFIG_XIP_KERNEL) && _y < phys_ram_base) ?								\
+	(IS_ENABLED(CONFIG_XIP_KERNEL) && _y < phys_ram_base) ?					\
 		(void *)((unsigned long)(_y) + kernel_map.va_kernel_xip_pa_offset) :		\
 		(void *)((unsigned long)(_y) + kernel_map.va_kernel_pa_offset + XIP_OFFSET);	\
 	})
