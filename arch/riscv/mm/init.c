@@ -32,9 +32,6 @@
 
 struct kernel_mapping kernel_map __ro_after_init;
 EXPORT_SYMBOL(kernel_map);
-#ifdef CONFIG_XIP_KERNEL
-#define kernel_map	(*(struct kernel_mapping *)XIP_FIXUP(&kernel_map))
-#endif
 
 phys_addr_t phys_ram_base __ro_after_init;
 EXPORT_SYMBOL(phys_ram_base);
@@ -49,8 +46,8 @@ EXPORT_SYMBOL(empty_zero_page);
 
 extern char _start[];
 #define DTB_EARLY_BASE_VA      PGDIR_SIZE
-void *_dtb_early_va __initdata;
-uintptr_t _dtb_early_pa __initdata;
+void *dtb_early_va __initdata;
+uintptr_t dtb_early_pa __initdata;
 
 struct pt_alloc_ops {
 	pte_t *(*get_pte_virt)(phys_addr_t pa);
@@ -212,29 +209,22 @@ static void __init setup_bootmem(void)
 }
 
 #ifdef CONFIG_MMU
-static struct pt_alloc_ops _pt_ops __initdata;
-
-#ifdef CONFIG_XIP_KERNEL
-#define pt_ops (*(struct pt_alloc_ops *)XIP_FIXUP(&_pt_ops))
-#else
-#define pt_ops _pt_ops
-#endif
+static struct pt_alloc_ops pt_ops __initdata;
 
 unsigned long pfn_base __ro_after_init;
 EXPORT_SYMBOL(pfn_base);
 
 pgd_t swapper_pg_dir[PTRS_PER_PGD] __page_aligned_bss;
 pgd_t trampoline_pg_dir[PTRS_PER_PGD] __page_aligned_bss;
-static pte_t fixmap_pte[PTRS_PER_PTE] __page_aligned_bss;
-
-pgd_t early_pg_dir[PTRS_PER_PGD] __initdata __aligned(PAGE_SIZE);
-static pmd_t __maybe_unused early_dtb_pmd[PTRS_PER_PMD] __initdata __aligned(PAGE_SIZE);
-
 #ifdef CONFIG_XIP_KERNEL
-#define trampoline_pg_dir      ((pgd_t *)XIP_FIXUP(trampoline_pg_dir))
-#define fixmap_pte             ((pte_t *)XIP_FIXUP(fixmap_pte))
-#define early_pg_dir           ((pgd_t *)XIP_FIXUP(early_pg_dir))
-#endif /* CONFIG_XIP_KERNEL */
+extern pte_t fixmap_pte[PTRS_PER_PTE];
+extern pgd_t early_pg_dir[PTRS_PER_PGD];
+#else
+static pte_t fixmap_pte[PTRS_PER_PTE] __page_aligned_bss;
+pgd_t early_pg_dir[PTRS_PER_PGD] __initdata __aligned(PAGE_SIZE);
+#endif
+
+static pmd_t __maybe_unused early_dtb_pmd[PTRS_PER_PMD] __initdata __aligned(PAGE_SIZE);
 
 void __set_fixmap(enum fixed_addresses idx, phys_addr_t phys, pgprot_t prot)
 {
@@ -306,17 +296,16 @@ static void __init create_pte_mapping(pte_t *ptep,
 
 #ifndef __PAGETABLE_PMD_FOLDED
 
+#ifdef CONFIG_XIP_KERNEL
+extern pmd_t fixmap_pmd[PTRS_PER_PMD];
+extern pmd_t early_pmd[PTRS_PER_PMD];
+#else
 static pmd_t trampoline_pmd[PTRS_PER_PMD] __page_aligned_bss;
 static pmd_t fixmap_pmd[PTRS_PER_PMD] __page_aligned_bss;
 static pmd_t early_pmd[PTRS_PER_PMD] __initdata __aligned(PAGE_SIZE);
+#endif
 
-#ifdef CONFIG_XIP_KERNEL
-#define trampoline_pmd ((pmd_t *)XIP_FIXUP(trampoline_pmd))
-#define fixmap_pmd     ((pmd_t *)XIP_FIXUP(fixmap_pmd))
-#define early_pmd      ((pmd_t *)XIP_FIXUP(early_pmd))
-#endif /* CONFIG_XIP_KERNEL */
-
-static pmd_t *__init get_pmd_virt_early(phys_addr_t pa)
+static __maybe_unused pmd_t *__init get_pmd_virt_early(phys_addr_t pa)
 {
 	/* Before MMU is enabled */
 	return (pmd_t *)((uintptr_t)pa);
@@ -333,7 +322,7 @@ static pmd_t *__init get_pmd_virt_late(phys_addr_t pa)
 	return (pmd_t *) __va(pa);
 }
 
-static phys_addr_t __init alloc_pmd_early(uintptr_t va)
+static __maybe_unused phys_addr_t __init alloc_pmd_early(uintptr_t va)
 {
 	BUG_ON((va - kernel_map.virt_addr) >> PGDIR_SHIFT);
 
@@ -521,6 +510,14 @@ static void __init create_kernel_page_table(pgd_t *pgdir,
 				   kernel_map.phys_addr + (va - (kernel_map.virt_addr + XIP_OFFSET)),
 				   PMD_SIZE, PAGE_KERNEL);
 }
+
+static void __init setup_early_page_table(uintptr_t dtb_pa)
+{
+	/*
+	 * Nothing must be done here since the early page table is generated at
+	 * compile-time.
+	*/
+}
 #else
 static void __init create_kernel_page_table(pgd_t *pgdir, bool early)
 {
@@ -534,7 +531,6 @@ static void __init create_kernel_page_table(pgd_t *pgdir, bool early)
 				   early ?
 					PAGE_KERNEL_EXEC : pgprot_from_va(va));
 }
-#endif
 
 /*
  * Setup a 4MB mapping that encompasses the device tree: for 64-bit kernel,
@@ -557,20 +553,48 @@ static void __init create_fdt_early_page_table(pgd_t *pgdir, uintptr_t dtb_pa)
 		create_pmd_mapping(early_dtb_pmd, DTB_EARLY_BASE_VA + PMD_SIZE,
 				   pa + PMD_SIZE, PMD_SIZE, PAGE_KERNEL);
 	}
+#endif
+}
 
-	dtb_early_va = (void *)DTB_EARLY_BASE_VA + (dtb_pa & (PMD_SIZE - 1));
+static void __init setup_early_page_table(uintptr_t dtb_pa)
+{
+	pt_ops.alloc_pte = alloc_pte_early;
+	pt_ops.get_pte_virt = get_pte_virt_early;
+#ifndef __PAGETABLE_PMD_FOLDED
+	pt_ops.alloc_pmd = alloc_pmd_early;
+	pt_ops.get_pmd_virt = get_pmd_virt_early;
+#endif
+	/* Setup early PGD for fixmap */
+	create_pgd_mapping(early_pg_dir, FIXADDR_START,
+			   (uintptr_t)fixmap_pgd_next, PGDIR_SIZE, PAGE_TABLE);
+
+#ifndef __PAGETABLE_PMD_FOLDED
+	/* Setup fixmap PMD */
+	create_pmd_mapping(fixmap_pmd, FIXADDR_START,
+			   (uintptr_t)fixmap_pte, PMD_SIZE, PAGE_TABLE);
+	/* Setup trampoline PGD and PMD */
+	create_pgd_mapping(trampoline_pg_dir, kernel_map.virt_addr,
+			   (uintptr_t)trampoline_pmd, PGDIR_SIZE, PAGE_TABLE);
+
+	create_pmd_mapping(trampoline_pmd, kernel_map.virt_addr,
+			   kernel_map.phys_addr, PMD_SIZE, PAGE_KERNEL_EXEC);
 #else
-	/*
-	 * For 64-bit kernel, __va can't be used since it would return a linear
-	 * mapping address whereas dtb_early_va will be used before
-	 * setup_vm_final installs the linear mapping. For 32-bit kernel, as the
-	 * kernel is mapped in the linear mapping, that makes no difference.
-	 */
-	dtb_early_va = kernel_mapping_pa_to_va(XIP_FIXUP(dtb_pa));
+	/* Setup trampoline PGD */
+	create_pgd_mapping(trampoline_pg_dir, kernel_map.virt_addr,
+			   kernel_map.phys_addr, PGDIR_SIZE, PAGE_KERNEL_EXEC);
 #endif
 
-	dtb_early_pa = dtb_pa;
+	/*
+	 * Setup early PGD covering entire kernel which will allow
+	 * us to reach paging_init(). We map all memory banks later
+	 * in setup_vm_final() below.
+	 */
+	create_kernel_page_table(early_pg_dir, true);
+
+	/* Setup early mapping for FDT early scan */
+	create_fdt_early_page_table(early_pg_dir, dtb_pa);
 }
+#endif
 
 asmlinkage void __init setup_vm(uintptr_t dtb_pa)
 {
@@ -600,45 +624,21 @@ asmlinkage void __init setup_vm(uintptr_t dtb_pa)
 	BUG_ON((PAGE_OFFSET % PGDIR_SIZE) != 0);
 	BUG_ON((kernel_map.phys_addr % PMD_SIZE) != 0);
 
-	pt_ops.alloc_pte = alloc_pte_early;
-	pt_ops.get_pte_virt = get_pte_virt_early;
-#ifndef __PAGETABLE_PMD_FOLDED
-	pt_ops.alloc_pmd = alloc_pmd_early;
-	pt_ops.get_pmd_virt = get_pmd_virt_early;
-#endif
-	/* Setup early PGD for fixmap */
-	create_pgd_mapping(early_pg_dir, FIXADDR_START,
-			   (uintptr_t)fixmap_pgd_next, PGDIR_SIZE, PAGE_TABLE);
+	setup_early_page_table(dtb_pa);
 
-#ifndef __PAGETABLE_PMD_FOLDED
-	/* Setup fixmap PMD */
-	create_pmd_mapping(fixmap_pmd, FIXADDR_START,
-			   (uintptr_t)fixmap_pte, PMD_SIZE, PAGE_TABLE);
-	/* Setup trampoline PGD and PMD */
-	create_pgd_mapping(trampoline_pg_dir, kernel_map.virt_addr,
-			   (uintptr_t)trampoline_pmd, PGDIR_SIZE, PAGE_TABLE);
-#ifdef CONFIG_XIP_KERNEL
-	create_pmd_mapping(trampoline_pmd, kernel_map.virt_addr,
-			   kernel_map.xiprom, PMD_SIZE, PAGE_KERNEL_EXEC);
+#ifndef CONFIG_BUILTIN_DTB
+	dtb_early_va = (void *)DTB_EARLY_BASE_VA + (dtb_pa & (PMD_SIZE - 1));
 #else
-	create_pmd_mapping(trampoline_pmd, kernel_map.virt_addr,
-			   kernel_map.phys_addr, PMD_SIZE, PAGE_KERNEL_EXEC);
-#endif
-#else
-	/* Setup trampoline PGD */
-	create_pgd_mapping(trampoline_pg_dir, kernel_map.virt_addr,
-			   kernel_map.phys_addr, PGDIR_SIZE, PAGE_KERNEL_EXEC);
-#endif
-
 	/*
-	 * Setup early PGD covering entire kernel which will allow
-	 * us to reach paging_init(). We map all memory banks later
-	 * in setup_vm_final() below.
+	 * For 64-bit kernel, __va can't be used since it would return a linear
+	 * mapping address whereas dtb_early_va will be used before
+	 * setup_vm_final installs the linear mapping. For 32-bit kernel, as the
+	 * kernel is mapped in the linear mapping, that makes no difference.
 	 */
-	create_kernel_page_table(early_pg_dir, true);
+	dtb_early_va = kernel_mapping_pa_to_va(dtb_pa);
+#endif
 
-	/* Setup early mapping for FDT early scan */
-	create_fdt_early_page_table(early_pg_dir, dtb_pa);
+	dtb_early_pa = dtb_pa;
 
 	/*
 	 * Bootime fixmap only can handle PMD_SIZE mapping. Thus, boot-ioremap

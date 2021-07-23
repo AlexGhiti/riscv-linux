@@ -78,6 +78,9 @@ SECTIONS
 	__end_ro_after_init = .;
 
 	. = ALIGN(PAGE_SIZE);
+#include "early-page-table.lds.S"
+
+	. = ALIGN(PAGE_SIZE);
 	__init_begin = .;
 	.init.data : {
 		INIT_DATA

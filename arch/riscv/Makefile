@@ -123,6 +123,17 @@ $(BOOT_TARGETS): vmlinux
 	$(Q)$(MAKE) $(build)=$(boot) $(boot)/$@
 	@$(kecho) '  Kernel: $(boot)/$@ is ready'
 
+ifeq ($(CONFIG_XIP_KERNEL),y)
+vmlinux: early-page-table.lds.S
+
+quiet_cmd_generate_early_page_table = GENPGT  $@
+cmd_generate_early_page_table =	$(srctree)/arch/riscv/kernel/generate-early-page-table.py .config
+
+# TODO this is always called even without modifications!
+early-page-table.lds.S: $(srctree)/arch/riscv/kernel/generate-early-page-table.py
+	$(call if_changed,generate_early_page_table)
+endif
+
 Image.%: Image
 	$(Q)$(MAKE) $(build)=$(boot) $(boot)/$@
 

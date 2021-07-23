@@ -79,11 +79,12 @@ pe_head_start:
 
 .align 2
 #ifdef CONFIG_MMU
+
+# a0: page directory address
+# a1: kernel virtual address
+# returns: relocated return address
 relocate:
 	/* Relocate return address */
-	la a1, kernel_map
-	XIP_FIXUP_OFFSET a1
-	REG_L a1, KERNEL_MAP_VIRT_ADDR(a1)
 	la a2, _start
 	sub a1, a1, a2
 	add ra, ra, a1
@@ -98,6 +99,7 @@ relocate:
 	li a1, SATP_MODE
 	or a2, a2, a1
 
+#ifndef CONFIG_XIP_KERNEL
 	/*
 	 * Load trampoline page directory, which will cause us to trap to
 	 * stvec if VA != PA, or simply fall through if VA == PA.  We need a
@@ -105,11 +107,21 @@ relocate:
 	 * to ensure the new translations are in use.
 	 */
 	la a0, trampoline_pg_dir
-	XIP_FIXUP_OFFSET a0
 	srl a0, a0, PAGE_SHIFT
 	or a0, a0, a1
 	sfence.vma
 	csrw CSR_SATP, a0
+#else
+	/*
+	 * Switch to kernel page tables.  A full fence is necessary in order to
+	 * avoid using the trampoline translations, which are only correct for
+	 * the first superpage.  Fetching the fence is guarnteed to work
+	 * because that first superpage is translated the same way.
+	 */
+	csrw CSR_SATP, a2
+	sfence.vma
+#endif
+
 .align 2
 1:
 	/* Set trap vector to spin forever to help debug */
@@ -121,7 +133,7 @@ relocate:
 .option norelax
 	la gp, __global_pointer$
 .option pop
-
+#ifndef CONFIG_XIP_KERNEL
 	/*
 	 * Switch to kernel page tables.  A full fence is necessary in order to
 	 * avoid using the trampoline translations, which are only correct for
@@ -130,6 +142,7 @@ relocate:
 	 */
 	csrw CSR_SATP, a2
 	sfence.vma
+#endif
 
 	ret
 #endif /* CONFIG_MMU */
@@ -174,6 +187,8 @@ secondary_start_common:
 	/* Enable virtual memory and relocate to virtual address */
 	la a0, swapper_pg_dir
 	XIP_FIXUP_OFFSET a0
+	la a1, kernel_map
+	REG_L a1, KERNEL_MAP_VIRT_ADDR(a1)
 	call relocate
 #endif
 	call setup_trap_vector
@@ -280,7 +295,25 @@ pmp_done:
 	mv a0, s0
 #endif
 
-#ifndef CONFIG_XIP_KERNEL
+	/* Save hart ID and DTB physical address */
+	mv s0, a0
+	mv s1, a1
+
+#ifdef CONFIG_XIP_KERNEL
+	/* Keep DTB physical address before switching to virtual addressing */
+	la s2, __dtb_start
+	/* No need to fixup early_pg_dir as it is read-only */
+	la a0, early_pg_dir
+	li a1, KERNEL_LINK_ADDR
+	call relocate
+#ifdef CONFIG_BUILTIN_DTB
+	mv a0, s2
+#else
+	mv a0, s1
+#endif /* CONFIG_BUILTIN_DTB */
+	la sp, init_thread_union + THREAD_SIZE
+	call setup_vm
+#else /* CONFIG_XIP_KERNEL */
 	/* Clear BSS for flat non-ELF images */
 	la a3, __bss_start
 	la a4, __bss_stop
@@ -290,18 +323,8 @@ clear_bss:
 	add a3, a3, RISCV_SZPTR
 	blt a3, a4, clear_bss
 clear_bss_done:
-#endif
-	/* Save hart ID and DTB physical address */
-	mv s0, a0
-	mv s1, a1
-
-	la a2, boot_cpu_hartid
-	XIP_FIXUP_OFFSET a2
-	REG_S a0, (a2)
-
 	/* Initialize page tables and relocate to virtual addresses */
 	la sp, init_thread_union + THREAD_SIZE
-	XIP_FIXUP_OFFSET sp
 #ifdef CONFIG_BUILTIN_DTB
 	la a0, __dtb_start
 #else
@@ -310,9 +333,14 @@ clear_bss_done:
 	call setup_vm
 #ifdef CONFIG_MMU
 	la a0, early_pg_dir
-	XIP_FIXUP_OFFSET a0
+	la a1, kernel_map
+	REG_L a1, KERNEL_MAP_VIRT_ADDR(a1)
 	call relocate
 #endif /* CONFIG_MMU */
+#endif /* CONFIG_XIP_KERNEL */
+
+	la a2, boot_cpu_hartid
+	REG_S s0, (a2)
 
 	call setup_trap_vector
 	/* Restore C environment */
