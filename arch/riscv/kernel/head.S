@@ -26,6 +26,13 @@ _xip_fixup: .dword CONFIG_PHYS_RAM_BASE - CONFIG_XIP_PHYS_ADDR - XIP_OFFSET
 .endm
 #endif /* CONFIG_XIP_KERNEL */
 
+.macro load_gp
+.option push
+.option norelax
+	la gp, __global_pointer$
+.option pop
+.endm
+
 __HEAD
 ENTRY(_start)
 	/*
@@ -129,10 +136,8 @@ relocate:
 	csrw CSR_TVEC, a0
 
 	/* Reload the global pointer */
-.option push
-.option norelax
-	la gp, __global_pointer$
-.option pop
+	load_gp
+
 #ifndef CONFIG_XIP_KERNEL
 	/*
 	 * Switch to kernel page tables.  A full fence is necessary in order to
@@ -154,10 +159,7 @@ secondary_start_sbi:
 	csrw CSR_IP, zero
 
 	/* Load the global pointer */
-	.option push
-	.option norelax
-		la gp, __global_pointer$
-	.option pop
+	load_gp
 
 	/*
 	 * Disable FPU to detect illegal usage of
@@ -249,11 +251,7 @@ pmp_done:
 	csrr a0, CSR_MHARTID
 #endif /* CONFIG_RISCV_M_MODE */
 
-	/* Load the global pointer */
-.option push
-.option norelax
-	la gp, __global_pointer$
-.option pop
+	load_gp
 
 	/*
 	 * Disable FPU to detect illegal usage of
