@@ -98,6 +98,10 @@ static const struct mfd_cell da9063_common_devs[] = {
 	{
 		.name		= DA9063_DRVNAME_VIBRATION,
 	},
+	{
+		.name		= DA9063_DRVNAME_RESET,
+		.of_compatible	= "dlg,da9063-reset",
+	},
 };
 
 /* Only present on DA9063 , not on DA9063L */

@@ -75,6 +75,12 @@ config POWER_RESET_BRCMSTB
 	  Say Y here if you have a Broadcom STB board and you wish
 	  to have restart support.
 
+config POWER_RESET_DA9063
+	tristate "DA9063 reset driver"
+	depends on MFD_DA9063 && OF
+	help
+	  This enables the reset controller driver for Dialog DA9063 modules.
+
 config POWER_RESET_GEMINI_POWEROFF
 	bool "Cortina Gemini power-off driver"
 	depends on ARCH_GEMINI || COMPILE_TEST
