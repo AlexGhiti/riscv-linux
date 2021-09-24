@@ -18,6 +18,7 @@ description: |
   da9063-onkey            :               : On Key
   da9063-rtc              :               : Real-Time Clock (DA9063 only)
   da9063-watchdog         :               : Watchdog
+  da9063-reset            :               : Reset
 
 properties:
   compatible:
@@ -49,6 +50,9 @@ properties:
   watchdog:
     $ref: ../watchdog/da9063-watchdog.yaml
 
+  reset:
+    $ref: ../power/reset/da9063-reset.yaml
+
 required:
   - compatible
   - reg
@@ -77,6 +81,11 @@ examples:
                 onkey {
                         compatible = "dlg,da9063-onkey";
                         dlg,disable-key-power;
+                };
+
+                reset {
+                        compatible = "dlg,da9063-reset";
+                        priority = <129>;
                 };
 
                 regulators {
