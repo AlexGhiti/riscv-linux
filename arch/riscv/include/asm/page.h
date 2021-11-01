@@ -33,7 +33,7 @@
  */
 #define PAGE_OFFSET		_AC(CONFIG_PAGE_OFFSET, UL)
 
-#define KERN_VIRT_SIZE (-PAGE_OFFSET)
+#define KERN_VIRT_SIZE		(TASK_SIZE >> 1)
 
 #ifndef __ASSEMBLY__
 

@@ -47,17 +47,17 @@ RISC-V Linux Kernel SV39
                                                               | Kernel-space virtual memory, shared between all processes:
   ____________________________________________________________|___________________________________________________________
                     |            |                  |         |
-   ffffffc000000000 | -256    GB | ffffffc7ffffffff |   32 GB | kasan
-   ffffffcefee00000 | -196    GB | ffffffcefeffffff |    2 MB | fixmap
-   ffffffceff000000 | -196    GB | ffffffceffffffff |   16 MB | PCI io
-   ffffffcf00000000 | -196    GB | ffffffcfffffffff |    4 GB | vmemmap
-   ffffffd000000000 | -192    GB | ffffffdfffffffff |   64 GB | vmalloc/ioremap space
-   ffffffe000000000 | -128    GB | ffffffff7fffffff |  124 GB | direct mapping of all physical memory
+   ffffffc5fee00000 | -232    GB | ffffffc5feffffff |    2 MB | fixmap
+   ffffffc5ff000000 | -232    GB | ffffffc5ffffffff |   16 MB | PCI io
+   ffffffc600000000 | -232    GB | ffffffc6ffffffff |    4 GB | vmemmap
+   ffffffc700000000 | -228    GB | ffffffd6ffffffff |   64 GB | vmalloc/ioremap space
+   ffffffd700000000 | -164    GB | fffffff6ffffffff |  128 GB | direct mapping of all physical memory
   __________________|____________|__________________|_________|____________________________________________________________
                                                               |
                                                               |
   ____________________________________________________________|____________________________________________________________
                     |            |                  |         |
+   fffffff700000000 |  -36    GB | fffffffeffffffff |   32 GB | kasan
    ffffffff00000000 |   -4    GB | ffffffff7fffffff |    2 GB | modules, BPF
    ffffffff80000000 |   -2    GB | ffffffffffffffff |    2 GB | kernel
   __________________|____________|__________________|_________|____________________________________________________________

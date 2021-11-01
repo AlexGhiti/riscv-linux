@@ -103,6 +103,9 @@ static void __init print_vm_layout(void)
 	print_mlm("lowmem", (unsigned long)PAGE_OFFSET,
 		  (unsigned long)high_memory);
 #ifdef CONFIG_64BIT
+#ifdef CONFIG_KASAN
+	print_mlm("kasan", KASAN_SHADOW_START, KASAN_SHADOW_END);
+#endif
 	print_mlm("kernel", (unsigned long)KERNEL_LINK_ADDR,
 		  (unsigned long)ADDRESS_SPACE_END);
 #endif
