@@ -1,4 +1,10 @@
-linux-riscv-starfive-unstable (5.15.0-1000.0) jammy; urgency=medium
+linux-riscv-nezha-unstable (5.15.0-1001.1-ppa0) jammy; urgency=medium
+
+  * Add support for Allwinner Nezha board
+
+ -- Alexandre Ghiti <alexandre.ghiti@canonical.com>  Thu, 04 Nov 2021 13:34:41 +0100
+
+linux-riscv-nezha-unstable (5.15.0-1000.0) jammy; urgency=medium
 
   * Empty entry
 
