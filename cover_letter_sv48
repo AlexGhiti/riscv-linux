@@ -1,0 +1,15 @@
+New version:
+- Fix SZ_1T already rebased
+- Fix warning create_pud_mapping
+- Fix k210 nommu build
+- Downgrade !KASAN only: tried to loop (it works but IMO too much fragile), tried establishing only kasan mapping (can't work because the addressing is physical)
+- Move KASAN next to the kernel => both layouts changed, kasan not aligned on
+  PGDIR_SIZE implied changes in population
+
+Tested on:
+
+* Qemu sv39: OK
+* Qemu sv48: OK
+* Qemu kasan sv39: OK
+* Qemu kasan sv48: OK
+* Qemu sv32: OK
