@@ -35,6 +35,8 @@
 
 #include "head.h"
 
+void dma_non_coherent_setup(void);
+
 #if defined(CONFIG_DUMMY_CONSOLE) || defined(CONFIG_EFI)
 struct screen_info screen_info __section(".data") = {
 	.orig_video_lines	= 30,
@@ -295,6 +297,13 @@ void __init setup_arch(char **cmdline_p)
 #endif
 
 	riscv_fill_hwcap();
+
+	/*
+	 * If the SoC has devices that are not DMA coherent, we should check
+	 * if the device-tree contains an uncached-offset property which would
+	 * signal the presence of an uncached mirror mapping of the DRAM.
+	 */
+	dma_non_coherent_setup();
 }
 
 static int __init topology_init(void)
