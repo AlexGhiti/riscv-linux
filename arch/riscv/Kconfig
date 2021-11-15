@@ -218,11 +218,6 @@ config PGTABLE_LEVELS
 config LOCKDEP_SUPPORT
 	def_bool y
 
-config RISCV_UNCACHED_OFFSET
-	hex "Base address of uncached alias"
-	default 0xF80000000 if ARCH_HAS_DMA_SET_UNCACHED && SOC_STARFIVE
-	default 0 if !ARCH_HAS_DMA_SET_UNCACHED
-
 config RISCV_DMA_NONCOHERENT
 	bool
 	select ARCH_HAS_DMA_PREP_COHERENT
