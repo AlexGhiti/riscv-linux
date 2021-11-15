@@ -223,7 +223,7 @@ void *dma_direct_alloc(struct device *dev, size_t size,
 		 * eventually go away.
 		 */
 		if (!IS_ENABLED(CONFIG_ARCH_HAS_DMA_SET_UNCACHED) &&
-		    !IS_ENABLED(CONFIG_DMA_DIRECT_REMAP) &&
+		    !arch_dma_soc_supports_direct_remap() &&
 		    !IS_ENABLED(CONFIG_DMA_GLOBAL_POOL) &&
 		    !is_swiotlb_for_alloc(dev))
 			return arch_dma_alloc(dev, size, dma_handle, gfp,
@@ -242,7 +242,7 @@ void *dma_direct_alloc(struct device *dev, size_t size,
 		 * given that remapping memory is a blocking operation we'll
 		 * instead have to dip into the atomic pools.
 		 */
-		remap = IS_ENABLED(CONFIG_DMA_DIRECT_REMAP);
+		remap = arch_dma_soc_supports_direct_remap();
 		if (remap) {
 			if (dma_direct_use_pool(dev, gfp))
 				return dma_direct_alloc_from_pool(dev, size,
@@ -329,7 +329,7 @@ void dma_direct_free(struct device *dev, size_t size,
 	}
 
 	if (!IS_ENABLED(CONFIG_ARCH_HAS_DMA_SET_UNCACHED) &&
-	    !IS_ENABLED(CONFIG_DMA_DIRECT_REMAP) &&
+	    !arch_dma_soc_supports_direct_remap() &&
 	    !IS_ENABLED(CONFIG_DMA_GLOBAL_POOL) &&
 	    !dev_is_dma_coherent(dev) &&
 	    !is_swiotlb_for_alloc(dev)) {
@@ -526,7 +526,7 @@ int dma_direct_get_sgtable(struct device *dev, struct sg_table *sgt,
 bool dma_direct_can_mmap(struct device *dev)
 {
 	return dev_is_dma_coherent(dev) ||
-		IS_ENABLED(CONFIG_DMA_NONCOHERENT_MMAP);
+		arch_dma_soc_supports_noncoherent_mmap();
 }
 
 int dma_direct_mmap(struct device *dev, struct vm_area_struct *vma,
