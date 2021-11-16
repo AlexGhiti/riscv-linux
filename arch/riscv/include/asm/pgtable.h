@@ -145,7 +145,7 @@ extern struct pt_alloc_ops pt_ops __initdata;
 /* Page protection bits */
 #define _PAGE_BASE	(_PAGE_PRESENT | _PAGE_ACCESSED | _PAGE_USER | _PAGE_DMA_CACHE)
 
-#define PAGE_NONE		__pgprot(_PAGE_PROT_NONE | _PAGE_READ)
+#define PAGE_NONE		__pgprot(_PAGE_DMA_CACHE | _PAGE_PROT_NONE)
 #define PAGE_READ		__pgprot(_PAGE_BASE | _PAGE_READ)
 #define PAGE_WRITE		__pgprot(_PAGE_BASE | _PAGE_READ | _PAGE_WRITE)
 #define PAGE_EXEC		__pgprot(_PAGE_BASE | _PAGE_EXEC)
