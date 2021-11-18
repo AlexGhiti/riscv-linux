@@ -65,13 +65,6 @@ enum sbi_ext_hsm_fid {
 	SBI_EXT_HSM_HART_STATUS,
 };
 
-enum sbi_hsm_hart_status {
-	SBI_HSM_HART_STATUS_STARTED = 0,
-	SBI_HSM_HART_STATUS_STOPPED,
-	SBI_HSM_HART_STATUS_START_PENDING,
-	SBI_HSM_HART_STATUS_STOP_PENDING,
-};
-
 enum sbi_ext_srst_fid {
 	SBI_EXT_SRST_RESET = 0,
 };
