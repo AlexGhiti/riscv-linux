@@ -52,12 +52,12 @@ RISC-V Linux Kernel SV39
    ffffffc600000000 | -232    GB | ffffffc6ffffffff |    4 GB | vmemmap
    ffffffc700000000 | -228    GB | ffffffd6ffffffff |   64 GB | vmalloc/ioremap space
    ffffffd700000000 | -164    GB | fffffff6ffffffff |  128 GB | direct mapping of all physical memory
+   fffffff700000000 |  -36    GB | fffffffeffffffff |   32 GB | kasan
   __________________|____________|__________________|_________|____________________________________________________________
                                                               |
                                                               |
   ____________________________________________________________|____________________________________________________________
                     |            |                  |         |
-   fffffff700000000 |  -36    GB | fffffffeffffffff |   32 GB | kasan
    ffffffff00000000 |   -4    GB | ffffffff7fffffff |    2 GB | modules, BPF
    ffffffff80000000 |   -2    GB | ffffffffffffffff |    2 GB | kernel
   __________________|____________|__________________|_________|____________________________________________________________
@@ -83,12 +83,12 @@ RISC-V Linux Kernel SV48
                                                               | Kernel-space virtual memory, shared between all processes:
   ____________________________________________________________|___________________________________________________________
                     |            |                  |         |
-   ffff800000000000 | -128    TB | ffff8fffffffffff |   16 TB | kasan
    ffff9dfffee00000 |  -94    TB | ffff9dfffeffffff |    2 MB | fixmap
    ffff9dffff000000 |  -94    TB | ffff9dffffffffff |   16 MB | PCI io
    ffff9e0000000000 |  -94    TB | ffff9fffffffffff |    2 TB | vmemmap
    ffffa00000000000 |  -92    TB | ffffbfffffffffff |   32 TB | vmalloc/ioremap space
-   ffffc00000000000 |  -64    TB | fffffffeffffffff |   64 TB | direct mapping of all physical memory
+   ffffc00000000000 |  -64    TB | FFFFEFFEFFFFFFFF |   64 TB | direct mapping of all physical memory
+   ffffefff00000000 |  -16    TB | fffffffeffffffff |   16 TB | kasan
   __________________|____________|__________________|_________|____________________________________________________________
                                                               |
                                                               | Identical layout to the 39-bit one from here on:

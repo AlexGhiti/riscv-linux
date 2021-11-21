@@ -841,6 +841,7 @@ asmlinkage void __init setup_vm(uintptr_t dtb_pa)
 	 * by the modules/BPF/kernel mappings which reduces the available size of the
 	 * linear mapping.
 	 */
+	// TODO Fix that, this isn't true anymore
 	memory_limit = -PAGE_OFFSET - (IS_ENABLED(CONFIG_64BIT) ? SZ_4G : 0);
 
 	/* Sanity check alignment and size */
