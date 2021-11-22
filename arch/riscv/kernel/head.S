@@ -81,6 +81,7 @@ pe_head_start:
 #ifdef CONFIG_MMU
 relocate:
 	/* Relocate return address */
+	// FIXME: use va_pa_offset
 	la a1, kernel_map
 	XIP_FIXUP_OFFSET a1
 	REG_L a1, KERNEL_MAP_VIRT_ADDR(a1)
@@ -326,6 +327,22 @@ clear_bss_done:
 #ifdef CONFIG_KASAN
 	call kasan_early_init
 #endif
+	call disable_pgtable_l4
+	bnez a0, 1f
+	la a1, kernel_map
+	REG_L a1, KERNEL_MAP_VA_KERNEL_PA_OFFSET(a1)
+	la a3, _start_kernel
+	sub a3, a3, a1
+	/* Re-init some context */
+	mv a0, s0
+	mv a1, s1
+	la a2, hart_lottery
+	/* TODO: We should make sure all harts are waiting? */
+	REG_S zero, (a2)
+	csrw CSR_TVEC, a3
+	csrw CSR_SATP, zero
+	/* Jump to _start_kernel */
+1:
 	/* Start the kernel */
 	call soc_early_init
 	tail start_kernel

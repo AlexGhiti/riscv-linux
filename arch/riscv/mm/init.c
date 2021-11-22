@@ -631,11 +631,22 @@ static __init pgprot_t pgprot_from_va(uintptr_t va)
 #endif /* CONFIG_STRICT_KERNEL_RWX */
 
 #ifdef CONFIG_64BIT
-static void __init disable_pgtable_l4(void)
+int __init disable_pgtable_l4(void)
 {
+	static int toto = 0;
+
+	if (toto)
+		return 1;
+
+	toto ++;
+	//if (pgtable_l4_enabled) {
 	pgtable_l4_enabled = false;
 	kernel_map.page_offset = PAGE_OFFSET_L3;
 	satp_mode = SATP_MODE_39;
+	return 0;
+	//}
+
+	//return 1;
 }
 
 /*
@@ -672,8 +683,11 @@ static __init void set_satp_mode(void)
 	hw_satp = csr_swap(CSR_SATP, 0ULL);
 	local_flush_tlb_all();
 
-	if (hw_satp != identity_satp)
-		disable_pgtable_l4();
+	if (hw_satp == identity_satp) {
+		pgtable_l4_enabled = false;
+		kernel_map.page_offset = PAGE_OFFSET_L3;
+		satp_mode = SATP_MODE_39;
+	}
 
 	memset(early_pg_dir, 0, PAGE_SIZE);
 	memset(early_pud, 0, PAGE_SIZE);

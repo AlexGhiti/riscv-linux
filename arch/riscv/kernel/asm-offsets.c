@@ -313,4 +313,6 @@ void asm_offsets(void)
 	DEFINE(PT_SIZE_ON_STACK, ALIGN(sizeof(struct pt_regs), STACK_ALIGN));
 
 	OFFSET(KERNEL_MAP_VIRT_ADDR, kernel_mapping, virt_addr);
+	OFFSET(KERNEL_MAP_VA_KERNEL_PA_OFFSET, kernel_mapping,
+	       va_kernel_pa_offset);
 }
