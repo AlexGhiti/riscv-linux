@@ -369,7 +369,7 @@ static void __init create_pte_mapping(pte_t *ptep,
 
 static pmd_t trampoline_pmd[PTRS_PER_PMD] __page_aligned_bss;
 static pmd_t fixmap_pmd[PTRS_PER_PMD] __page_aligned_bss;
-static pmd_t early_pmd[PTRS_PER_PMD] __initdata __aligned(PAGE_SIZE);
+static pmd_t early_pmd[PTRS_PER_PMD] __page_aligned_bss;//__initdata __aligned(PAGE_SIZE);
 
 #ifdef CONFIG_XIP_KERNEL
 #define trampoline_pmd ((pmd_t *)XIP_FIXUP(trampoline_pmd))
@@ -379,7 +379,7 @@ static pmd_t early_pmd[PTRS_PER_PMD] __initdata __aligned(PAGE_SIZE);
 
 static pud_t trampoline_pud[PTRS_PER_PUD] __page_aligned_bss;
 static pud_t fixmap_pud[PTRS_PER_PUD] __page_aligned_bss;
-static pud_t early_pud[PTRS_PER_PUD] __initdata __aligned(PAGE_SIZE);
+static pud_t early_pud[PTRS_PER_PUD] __page_aligned_bss;//__initdata __aligned(PAGE_SIZE);
 
 #ifdef CONFIG_XIP_KERNEL
 #define trampoline_pud ((pud_t *)XIP_FIXUP(trampoline_pud))
@@ -631,9 +631,9 @@ static __init pgprot_t pgprot_from_va(uintptr_t va)
 #endif /* CONFIG_STRICT_KERNEL_RWX */
 
 #ifdef CONFIG_64BIT
+int __section(".data") toto = 0;
 int __init disable_pgtable_l4(void)
 {
-	static int toto = 0;
 
 	if (toto)
 		return 1;
@@ -792,6 +792,10 @@ static void __init create_fdt_early_page_table(pgd_t *pgdir, uintptr_t dtb_pa)
 asmlinkage void __init setup_vm(uintptr_t dtb_pa)
 {
 	pmd_t __maybe_unused fix_bmap_spmd, fix_bmap_epmd;
+
+	pgtable_l4_enabled = true;
+	kernel_map.page_offset = CONFIG_PAGE_OFFSET;
+	satp_mode = SATP_MODE_48;
 
 	pt_ops.alloc_pte = alloc_pte_early;
 	pt_ops.get_pte_virt = get_pte_virt_early;
