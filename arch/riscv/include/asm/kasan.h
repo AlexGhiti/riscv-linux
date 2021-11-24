@@ -34,6 +34,7 @@
 
 void kasan_init(void);
 asmlinkage void kasan_early_init(void);
+void kasan_very_early_init(void);
 
 #endif
 #endif

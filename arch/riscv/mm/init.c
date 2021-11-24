@@ -638,6 +638,13 @@ static void __init disable_pgtable_l4(void)
 	satp_mode = SATP_MODE_39;
 }
 
+static void __init enable_pgtable_l4(void)
+{
+	pgtable_l4_enabled = true;
+	kernel_map.page_offset = CONFIG_PAGE_OFFSET;
+	satp_mode = SATP_MODE_48;
+}
+
 /*
  * There is a simple way to determine if 4-level is supported by the
  * underlying hardware: establish 1:1 mapping in 4-level page table mode
@@ -649,6 +656,36 @@ static __init void set_satp_mode(uintptr_t dtb_pa)
 	u64 identity_satp, hw_satp;
 	uintptr_t set_satp_mode_pmd;
 	int cpus_node;
+
+#ifdef CONFIG_KASAN
+	unsigned long addr = kernel_map.phys_addr;
+
+	/*
+	 * Establish early kasan mapping, otherwise traps when using functions
+	 * outside this file, use sv39 as this is always supported.
+	 */
+	disable_pgtable_l4();
+	create_pgd_mapping(early_pg_dir,
+			   addr, (uintptr_t)early_pmd,
+			   PGDIR_SIZE, PAGE_TABLE);
+
+	for (; addr < kernel_map.phys_addr + kernel_map.size; addr += PMD_SIZE) {
+		create_pmd_mapping(early_pmd,
+			   addr, addr,
+			   PMD_SIZE, PAGE_KERNEL_EXEC);
+	}
+
+	create_pmd_mapping(early_pmd,
+			   dtb_pa, dtb_pa,
+			   PMD_SIZE, PAGE_KERNEL_EXEC);
+
+	kasan_very_early_init();
+
+	identity_satp = PFN_DOWN((uintptr_t)&early_pg_dir) | satp_mode;
+
+	local_flush_tlb_all();
+	csr_write(CSR_SATP, identity_satp);
+#endif
 
 	/* Check if the user asked for sv39 explicitly in the device tree */
 	cpus_node = fdt_path_offset((void *)dtb_pa, "/cpus");
@@ -669,6 +706,14 @@ static __init void set_satp_mode(uintptr_t dtb_pa)
 			break;
 		}
 	}
+
+#ifdef CONFIG_KASAN
+	csr_write(CSR_SATP, 0ULL);
+	local_flush_tlb_all();
+	enable_pgtable_l4();
+	memset(early_pg_dir, 0, PAGE_SIZE);
+	memset(early_pmd, 0, PAGE_SIZE);
+#endif
 
 	set_satp_mode_pmd = ((unsigned long)set_satp_mode) & PMD_MASK;
 	create_pgd_mapping(early_pg_dir,
