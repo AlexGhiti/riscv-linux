@@ -41,3 +41,9 @@ As of v5.X, the RISC-V Linux Kernel will map the physical memory starting
 from 0x8000_0000, where usually some runtime services reside. That means
 that the bootloader is expected to mark such region as "reserved" so that the
 kernel does not use it: see devicetree/bindings/reserved-memory/reserved-memory.txt
+
+Kernel location
+---------------
+
+The kernel must be aligned on `PMD_SIZE`, i.e. 4MB for a 32-bit kernel and 2MB
+for a 64-bit kernel.
