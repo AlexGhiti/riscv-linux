@@ -792,7 +792,7 @@ EXPORT_SYMBOL(__sysfs_match_string);
  *
  * Do not use memset() to access IO space, use memset_io() instead.
  */
-void *memset(void *s, int c, size_t count)
+void __no_sanitize_address *memset(void *s, int c, size_t count)
 {
 	char *xs = s;
 
@@ -879,7 +879,7 @@ EXPORT_SYMBOL(memset64);
  * You should not use this function to access IO space, use memcpy_toio()
  * or memcpy_fromio() instead.
  */
-void *memcpy(void *dest, const void *src, size_t count)
+void __no_sanitize_address *memcpy(void *dest, const void *src, size_t count)
 {
 	char *tmp = dest;
 	const char *s = src;
@@ -900,7 +900,7 @@ EXPORT_SYMBOL(memcpy);
  *
  * Unlike memcpy(), memmove() copes with overlapping areas.
  */
-void *memmove(void *dest, const void *src, size_t count)
+void __no_sanitize_address *memmove(void *dest, const void *src, size_t count)
 {
 	char *tmp;
 	const char *s;
@@ -931,7 +931,10 @@ EXPORT_SYMBOL(memmove);
  * @count: The size of the area.
  */
 #undef memcmp
-__visible int memcmp(const void *cs, const void *ct, size_t count)
+#ifdef CONFIG_KASAN
+int __memcmp(const void *cs, const void *ct, size_t count) __alias(memcmp);
+#endif
+__visible __weak __no_sanitize_address int memcmp(const void *cs, const void *ct, size_t count)
 {
 	const unsigned char *su1, *su2;
 	int res = 0;
@@ -1063,7 +1066,7 @@ EXPORT_SYMBOL(strnstr);
  * returns the address of the first occurrence of @c, or %NULL
  * if @c is not found
  */
-void *memchr(const void *s, int c, size_t n)
+void  __no_sanitize_address *memchr(const void *s, int c, size_t n)
 {
 	const unsigned char *p = s;
 	while (n-- != 0) {

@@ -69,6 +69,20 @@ void *memcpy(void *dest, const void *src, size_t len)
 	return __memcpy(dest, src, len);
 }
 
+/*
+ * The original function is never instrumented and we only need to add a check
+ * at the beginning.
+ */
+#undef memcmp
+int memcmp(const void *cs, const void *ct, size_t count)
+{
+	if (!kasan_check_range((unsigned long)cs, count, false, _RET_IP_) ||
+	    !kasan_check_range((unsigned long)ct, count, false, _RET_IP_))
+		return -1;
+
+	return __memcmp(cs, ct, count);
+}
+
 void kasan_poison(const void *addr, size_t size, u8 value, bool init)
 {
 	void *shadow_start, *shadow_end;

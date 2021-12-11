@@ -20,24 +20,23 @@
  * accessed by the stub, so provide some aliases to make them accessible.
  * Only include data symbols here, or text symbols of functions that are
  * guaranteed to be safe when executed at another offset than they were
- * linked at. The routines below are all implemented in assembler in a
- * position independent manner
+ * linked at.
  */
-__efistub_memcmp		= memcmp;
-__efistub_memchr		= memchr;
-__efistub_memcpy		= memcpy;
-__efistub_memmove		= memmove;
-__efistub_memset		= memset;
-__efistub_strlen		= strlen;
-__efistub_strnlen		= strnlen;
-__efistub_strcmp		= strcmp;
-__efistub_strncmp		= strncmp;
-__efistub_strrchr		= strrchr;
+__efistub_memcmp		= memcmp;//KO
+__efistub_memchr		= memchr;//KO
+__efistub_memcpy		= memcpy; //OK
+__efistub_memmove		= memmove;//OK
+__efistub_memset		= memset;//OK
+__efistub_strlen		= strlen;//KO
+__efistub_strnlen		= strnlen;//KO
+__efistub_strcmp		= strcmp;//KO
+__efistub_strncmp		= strncmp;//KO
+__efistub_strrchr		= strrchr;//KO
 
 #ifdef CONFIG_KASAN
-__efistub___memcpy		= memcpy;
-__efistub___memmove		= memmove;
-__efistub___memset		= memset;
+__efistub___memcpy		= memcpy;//KO
+__efistub___memmove		= memmove;//KO
+__efistub___memset		= memset;//KO
 #endif
 
 __efistub__start		= _start;

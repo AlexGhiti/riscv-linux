@@ -153,6 +153,12 @@ extern void * memmove(void *,const void *,__kernel_size_t);
 extern void * memscan(void *,int,__kernel_size_t);
 #endif
 #ifndef __HAVE_ARCH_MEMCMP
+// TODO the cleanest would be to do all those declarations in a string-kasan.h file
+// included above. Architectures that redefine the string funcions already define the __***
+// functions
+#ifdef CONFIG_KASAN
+int __memcmp(const void *cs, const void *ct, size_t count);
+#endif
 extern int memcmp(const void *,const void *,__kernel_size_t);
 #endif
 #ifndef __HAVE_ARCH_BCMP
