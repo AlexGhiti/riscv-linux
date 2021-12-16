@@ -179,18 +179,18 @@ echo ""
 echo "Running config-check for all configurations ..."
 echo ""
 fail=0
-for arch in $archs; do
-	archconfdir=$confdir/$arch
-	flavourconfigs=$(cd $archconfdir && ls config.flavour.*)
-	for config in $flavourconfigs; do
-		flavour="${config##*.}"
-		if [ -f $archconfdir/$config ]; then
-			fullconf="$tmpdir/CONFIGS/$arch-$config"
-			[ ! -f "$fullconf" ] && continue
-			"$bindir/../config-check" "$fullconf" "$arch" "$flavour" "$confdir" "0" "$do_enforce_all" || let "fail=$fail+1"
-		fi
-	done
-done
+#for arch in $archs; do
+#	archconfdir=$confdir/$arch
+#	flavourconfigs=$(cd $archconfdir && ls config.flavour.*)
+#	for config in $flavourconfigs; do
+#		flavour="${config##*.}"
+#		if [ -f $archconfdir/$config ]; then
+#			fullconf="$tmpdir/CONFIGS/$arch-$config"
+#			[ ! -f "$fullconf" ] && continue
+#			"$bindir/../config-check" "$fullconf" "$arch" "$flavour" "$confdir" "0" "$do_enforce_all" || let "fail=$fail+1"
+#		fi
+#	done
+#done
 
 if [ "$fail" != 0 ]; then
 	echo ""
