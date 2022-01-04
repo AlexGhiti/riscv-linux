@@ -1,3 +1,9 @@
+linux-riscv-starfive-unstable (5.15.0-1001.1-ppa1) jammy; urgency=medium
+
+  * No-change rebuild.
+
+ -- Alexandre Ghiti <alexandre.ghiti@canonical.com>  Tue, 04 Jan 2022 08:55:54 +0100
+
 linux-riscv-starfive-unstable (5.15.0-1001.1-ppa0) jammy; urgency=medium
 
   * d/patch:
