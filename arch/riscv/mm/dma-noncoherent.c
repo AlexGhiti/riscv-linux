@@ -42,12 +42,35 @@ void arch_sync_dma_for_device(phys_addr_t paddr, size_t size, enum dma_data_dire
 {
 	if (soc_uncached_offset)
 		sifive_l2_flush64_range(paddr, size);
+	else {
+		switch (dir) {
+			case DMA_TO_DEVICE:
+			case DMA_FROM_DEVICE:
+			case DMA_BIDIRECTIONAL:
+				sbi_dma_sync(paddr, size, dir);
+				break;
+			default:
+				BUG();
+		}
+	}
 }
 
 void arch_sync_dma_for_cpu(phys_addr_t paddr, size_t size, enum dma_data_direction dir)
 {
 	if (soc_uncached_offset)
 		sifive_l2_flush64_range(paddr, size);
+	else {
+		switch (dir) {
+			case DMA_TO_DEVICE:
+				return;
+			case DMA_FROM_DEVICE:
+			case DMA_BIDIRECTIONAL:
+				sbi_dma_sync(paddr, size, dir);
+				break;
+			default:
+				BUG();
+		}
+	}
 }
 
 void arch_setup_dma_ops(struct device *dev, u64 dma_base, u64 size,
@@ -65,6 +88,11 @@ void arch_dma_prep_coherent(struct page *page, size_t size)
 
 		memset(flush_addr, 0, size);
 		sifive_l2_flush64_range(__pa(flush_addr), size);
+	} else {
+		void *ptr = page_address(page);
+
+		memset(ptr, 0, size);
+		sbi_dma_sync(page_to_phys(page), size, SBI_DMA_BIDIRECTIONAL);
 	}
 }
 
