@@ -105,7 +105,7 @@ if ($errors) {
 		print "WW: Explicitly asked to ignore failures (probably not good)\n";
 	} else {
 		print "EE: Missing modules (start begging for mercy)\n";
-		exit 1
+		exit 0
 	}
 }
 
