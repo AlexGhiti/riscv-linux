@@ -32,6 +32,7 @@
 #include <asm/thread_info.h>
 #include <asm/kasan.h>
 #include <asm/efi.h>
+#include <asm/soc.h>
 
 #include "head.h"
 
@@ -262,6 +263,8 @@ static void __init parse_dtb(void)
 #endif
 }
 
+extern struct soc_cache riscv_soc_cache;
+
 void __init setup_arch(char **cmdline_p)
 {
 	parse_dtb();
@@ -296,14 +299,9 @@ void __init setup_arch(char **cmdline_p)
 	setup_smp();
 #endif
 
-	riscv_fill_hwcap();
+	pr_err("Current model is %s (uncached_offset = %lx, is_dma_coherent = %u, has_custom_cmo = %u\n", riscv_soc_cache.model, riscv_soc_cache.uncached_offset, riscv_soc_cache.is_dma_coherent, riscv_soc_cache.has_custom_cmo);
 
-	/*
-	 * If the SoC has devices that are not DMA coherent, we should check
-	 * if the device-tree contains an uncached-offset property which would
-	 * signal the presence of an uncached mirror mapping of the DRAM.
-	 */
-	dma_non_coherent_setup();
+	riscv_fill_hwcap();
 }
 
 static int __init topology_init(void)

@@ -22,4 +22,11 @@ void soc_setup_vm(uintptr_t dtb_pa);
 extern unsigned long __soc_early_init_table_start;
 extern unsigned long __soc_early_init_table_end;
 
+struct soc_cache {
+	char model[256];
+	u64 uncached_offset;
+	bool is_dma_coherent;
+	bool has_custom_cmo;
+};
+
 #endif
