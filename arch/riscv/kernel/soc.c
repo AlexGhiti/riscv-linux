@@ -37,16 +37,16 @@ static void __init thead_init(void)
 	__riscv_custom_pte.wc    = 0;
 }
 
-void __init soc_setup_vm(void)
+void __init soc_setup_vm(uintptr_t dtb_pa)
 {
-	unsigned long vendor_id =
-		((struct riscv_image_header *)(&_start))->res1;
+	int root_node;
 
-	switch (vendor_id) {
-	case THEAD_VENDOR_ID:
-	// Do not rely on the bootloader...
-	default:
+	root_node = fdt_path_offset((void *)dtb_pa, "/");
+	if (root_node == NULL)
+		return;
+
+	model = fdt_getprop((void *)dtb_pa, root_node, "model", NULL);
+
+	if (!strcmp(model, "Allwinner D1 NeZha"))
 		thead_init();
-		break;
-	}
-};
+}
