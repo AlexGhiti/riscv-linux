@@ -312,7 +312,6 @@ struct sta_info *xrmac_sta_info_alloc(struct ieee80211_sub_if_data *sdata,
 {
 	struct ieee80211_local *local = sdata->local;
 	struct sta_info *sta;
-	struct timespec uptime;
 	int i;
 
 	sta = kzalloc(sizeof(*sta) + local->hw.sta_data_size, gfp);
@@ -333,8 +332,7 @@ struct sta_info *xrmac_sta_info_alloc(struct ieee80211_sub_if_data *sdata,
 	sta->sdata = sdata;
 	sta->last_rx = jiffies;
 
-	ktime_get_ts(&uptime);
-	sta->last_connected = uptime.tv_sec;
+	sta->last_connected = ktime_get_seconds();
 	ewma_init(&sta->avg_signal, 1024, 8);
 
 	if (sta_prepare_rate_control(local, sta, gfp)) {
