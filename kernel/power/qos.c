@@ -57,6 +57,9 @@ s32 pm_qos_read_value(struct pm_qos_constraints *c)
 
 static int pm_qos_get_value(struct pm_qos_constraints *c)
 {
+	struct plist_node *node;
+	int total_value = 0;
+
 	if (plist_head_empty(&c->list))
 		return c->no_constraint_value;
 
@@ -66,6 +69,12 @@ static int pm_qos_get_value(struct pm_qos_constraints *c)
 
 	case PM_QOS_MAX:
 		return plist_last(&c->list)->prio;
+
+	case PM_QOS_SUM:
+		plist_for_each(node, &c->list)
+			total_value += node->prio;
+
+		return total_value;
 
 	default:
 		WARN(1, "Unknown PM QoS type in %s\n", __func__);
