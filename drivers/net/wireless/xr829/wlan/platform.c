@@ -79,7 +79,7 @@ int xradio_wlan_power(int on)
 
 void xradio_sdio_detect(int enable)
 {
-	MCI_RESCAN_CARD(wlan_bus_id);
+	//MCI_RESCAN_CARD(wlan_bus_id);
 	xradio_dbg(XRADIO_DBG_ALWY, "%s SDIO card %d\n",
 				enable?"Detect":"Remove", wlan_bus_id);
 	mdelay(10);
