@@ -24,7 +24,7 @@ extern void sunxi_mmc_rescan_card(unsigned ids);
 extern int sunxi_mmc_check_r1_ready(struct mmc_host *mmc, unsigned ms);
 
 #define MCI_RESCAN_CARD(id)  sunxi_mmc_rescan_card(id)
-#define MCI_CHECK_READY(h, t)     sunxi_mmc_check_r1_ready(h, t)
+//#define MCI_CHECK_READY(h, t)     sunxi_mmc_check_r1_ready(h, t)
 
 #elif (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 4, 0))
 #define PLAT_ALLWINNER_SUNXI

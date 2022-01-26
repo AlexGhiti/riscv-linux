@@ -136,9 +136,9 @@ static int sdio_irq_subscribe(struct sbus_priv *self,
 		sdio_writeb(self->func, cccr, SDIO_CCCR_IENx, &ret);
 		if (ret) {
 			xradio_free_gpio_irq(&(self->func->dev), self);
-			if (MCI_CHECK_READY(self->func->card->host, 1000) != 0)
-				sbus_printk(XRADIO_DBG_ERROR,
-					    "%s:MCI_CHECK_READY timeout\n", __func__);
+			//if (MCI_CHECK_READY(self->func->card->host, 1000) != 0)
+			//	sbus_printk(XRADIO_DBG_ERROR,
+			//		    "%s:MCI_CHECK_READY timeout\n", __func__);
 		}
 		/* Restore the WLAN function number */
 		self->func->num = func_num;
