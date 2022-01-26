@@ -3079,17 +3079,13 @@ void xradio_rx_cb(struct xradio_vif *priv,
 	if ((ieee80211_is_beacon(mgmt->frame_control) ||
 		ieee80211_is_probe_resp(mgmt->frame_control))
 		&& !arg->status) {
-		struct timespec ts;
 		u64 tv_nsec;
-		xr_get_monotonic_boottime(&ts);
-		tv_nsec = ts.tv_nsec;
+		xr_get_monotonic_boottime(&tv_nsec);
 		do_div(tv_nsec, 1000);
 		if (ieee80211_is_beacon(mgmt->frame_control)) {
-			mgmt->u.beacon.timestamp =
-				((u64)ts.tv_sec * 1000000 + tv_nsec);
+			mgmt->u.beacon.timestamp = tv_nsec;
 		} else if (ieee80211_is_probe_resp(mgmt->frame_control)) {
-			mgmt->u.probe_resp.timestamp =
-				((u64)ts.tv_sec * 1000000 + tv_nsec);
+			mgmt->u.probe_resp.timestamp = tv_nsec;
 		}
 	}
 

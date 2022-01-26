@@ -22,7 +22,7 @@
 #include "xradio.h"
 #include "platform.h"
 #include "sbus.h"
-#include <linux/sunxi-gpio.h>
+//#include <linux/sunxi-gpio.h>
 #include <linux/gpio.h>
 #include <linux/types.h>
 //#include <linux/power/scenelock.h>

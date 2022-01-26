@@ -491,8 +491,8 @@ int HIF_R_W_TEST(struct xradio_common *hw_priv)
 {
 	int time;
 	int i;
-	struct timeval start;   //linux5.4 commit 33e26418193f58d1895f2f968e1953b1caf8deb7
-	struct timeval end;
+	//struct timeval start;   //linux5.4 commit 33e26418193f58d1895f2f968e1953b1caf8deb7
+	//struct timeval end;
 	unsigned int addr;
 	char *write_buf;
 	char *read_buf;
@@ -505,7 +505,7 @@ int HIF_R_W_TEST(struct xradio_common *hw_priv)
 		return 0xff;
 	}
 
-	xr_do_gettimeofday(&start);
+	//xr_do_gettimeofday(&start);
 	printk(KERN_ERR"[HIF test] --- <write> --- begin~~\n");
 	addr = PAS_RAM_START_ADDR;
 	memset(write_buf, hif_test_data_mode, hif_test_data_len * 4);
@@ -540,8 +540,8 @@ int HIF_R_W_TEST(struct xradio_common *hw_priv)
 	}
 
 	printk(KERN_ERR"[HIF test] --- <read> --- end~~\n");
-	xr_do_gettimeofday(&end);
-	time = 1000 * (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000;
+	//xr_do_gettimeofday(&end);
+	//time = 1000 * (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000;
 	kfree(write_buf);
 	kfree(read_buf);
 	return 0;

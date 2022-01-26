@@ -14,6 +14,14 @@
 
 #include <linux/version.h>
 
+struct timeval {
+	__kernel_old_time_t	tv_sec;		/* seconds */
+	__kernel_suseconds_t	tv_usec;	/* microseconds */
+};
+
+void xr_do_gettimeofday(struct timeval *tv);
+void xr_get_monotonic_boottime(u64 *ts);
+
 /*******************************************************
  interfaces for parse frame protocol info.
 ********************************************************/

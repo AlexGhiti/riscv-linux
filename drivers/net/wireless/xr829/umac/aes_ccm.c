@@ -12,6 +12,7 @@
 #include <linux/crypto.h>
 #include <linux/err.h>
 #include <crypto/aes.h>
+#include <crypto/internal/cipher.h>
 
 #include <net/mac80211.h>
 #include "key.h"
