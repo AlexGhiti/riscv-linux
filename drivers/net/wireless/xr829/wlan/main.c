@@ -1564,3 +1564,4 @@ void xradio_core_exit(void)
 	xradio_dbg(XRADIO_DBG_TRC, "%s\n", __func__);
 }
 
+MODULE_IMPORT_NS(CRYPTO_INTERNAL);

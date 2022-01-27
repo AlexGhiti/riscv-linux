@@ -477,7 +477,7 @@ static int xrmac_sta_info_insert_check(struct sta_info *sta)
 	if (unlikely(!ieee80211_sdata_running(sdata)))
 		return -ENETDOWN;
 
-	if (WARN_ON(compare_ether_addr(sta->sta.addr, sdata->vif.addr) == 0 ||
+	if (WARN_ON(ether_addr_equal(sta->sta.addr, sdata->vif.addr) ||
 		    is_multicast_ether_addr(sta->sta.addr)))
 		return -EINVAL;
 
@@ -1136,7 +1136,7 @@ struct ieee80211_sta *mac80211_find_sta_by_ifaddr(struct ieee80211_hw *hw,
 	 */
 	for_each_sta_info(hw_to_local(hw), addr, sta, nxt) {
 		if (localaddr &&
-		    compare_ether_addr(sta->sdata->vif.addr, localaddr) != 0)
+		    !ether_addr_equal(sta->sdata->vif.addr, localaddr))
 			continue;
 		if (!sta->uploaded)
 			return NULL;

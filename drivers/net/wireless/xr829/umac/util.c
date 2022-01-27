@@ -751,7 +751,7 @@ u32 mac802_11_parse_elems_crc(u8 *start, size_t len,
 			else
 				elem_parse_failed = true;
 			break;
-		case WLAN_EID_HT_INFORMATION:
+		case WLAN_EID_HT_OPERATION:
 			if (elen >= sizeof(struct ieee80211_ht_operation))
 				elems->ht_info_elem = (void *)pos;
 			else

@@ -1401,7 +1401,7 @@ static int ieee80211_add_station(struct wiphy *wiphy, struct net_device *dev,
 	} else
 		sdata = IEEE80211_DEV_TO_SUB_IF(dev);
 
-	if (compare_ether_addr(mac, sdata->vif.addr) == 0)
+	if (ether_addr_equal(mac, sdata->vif.addr))
 		return -EINVAL;
 
 	if (is_multicast_ether_addr(mac))
@@ -3398,7 +3398,7 @@ struct cfg80211_ops xrmac_config_ops = {
 	.set_wiphy_params = ieee80211_set_wiphy_params,
 	.set_tx_power = ieee80211_set_tx_power,
 	.get_tx_power = ieee80211_get_tx_power,
-	.set_wds_peer = ieee80211_set_wds_peer,
+	//.set_wds_peer = ieee80211_set_wds_peer,
 	.rfkill_poll = ieee80211_rfkill_poll,
 	CFG80211_TESTMODE_CMD(ieee80211_testmode_cmd)
 	CFG80211_TESTMODE_DUMP(ieee80211_testmode_dump)
@@ -3413,7 +3413,7 @@ struct cfg80211_ops xrmac_config_ops = {
 	.set_cqm_beacon_miss_config = ieee80211_set_cqm_beacon_miss_config,
 	.set_cqm_tx_fail_config = ieee80211_set_cqm_tx_fail_config,
 	*/
-	.mgmt_frame_register = ieee80211_mgmt_frame_register,
+	//.mgmt_frame_register = ieee80211_mgmt_frame_register,
 	.set_antenna = ieee80211_set_antenna,
 	.get_antenna = ieee80211_get_antenna,
 	.set_rekey_data = ieee80211_set_rekey_data,

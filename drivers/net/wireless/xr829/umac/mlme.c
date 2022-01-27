@@ -312,7 +312,7 @@ static void ieee80211_send_deauth_disassoc(struct ieee80211_sub_if_data *sdata,
 	mgmt->u.deauth.reason_code = cpu_to_le16(reason);
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 4, 0))
-		cfg80211_tx_mlme_mgmt(sdata->dev, (u8 *)mgmt, skb->len);
+		cfg80211_tx_mlme_mgmt(sdata->dev, (u8 *)mgmt, skb->len, false);
 #else
 	if (stype == IEEE80211_STYPE_DEAUTH)
 		if (cookie)
@@ -1952,7 +1952,7 @@ static const u64 care_about_ies =
 	(1ULL << WLAN_EID_CHANNEL_SWITCH) |
 	(1ULL << WLAN_EID_PWR_CONSTRAINT) |
 	(1ULL << WLAN_EID_HT_CAPABILITY) |
-	(1ULL << WLAN_EID_HT_INFORMATION);
+	(1ULL << WLAN_EID_HT_OPERATION);
 
 static void ieee80211_rx_mgmt_beacon(struct ieee80211_sub_if_data *sdata,
 				     struct ieee80211_mgmt *mgmt,
@@ -2236,10 +2236,10 @@ void mac80211_sta_rx_queued_mgmt(struct ieee80211_sub_if_data *sdata,
 		case IEEE80211_STYPE_ACTION:
 			switch (mgmt->u.action.category) {
 			case WLAN_CATEGORY_SPECTRUM_MGMT:
-				mac80211_sta_process_chanswitch(sdata,
-						&mgmt->u.action.u.chan_switch.sw_elem,
-						(void *)ifmgd->associated->priv,
-						rx_status->mactime);
+				//mac80211_sta_process_chanswitch(sdata,
+				//		&mgmt->u.action.u.chan_switch.sw_elem,
+				//		(void *)ifmgd->associated->priv,
+				//		rx_status->mactime);
 				break;
 			}
 		}
@@ -2251,14 +2251,14 @@ void mac80211_sta_rx_queued_mgmt(struct ieee80211_sub_if_data *sdata,
 			break;
 		case RX_MGMT_CFG80211_DEAUTH:
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 4, 0))
-			cfg80211_tx_mlme_mgmt(sdata->dev, (u8 *)mgmt, skb->len);
+			cfg80211_tx_mlme_mgmt(sdata->dev, (u8 *)mgmt, skb->len, false);
 #else
 			cfg80211_send_deauth(sdata->dev, (u8 *)mgmt, skb->len);
 #endif
 			break;
 		case RX_MGMT_CFG80211_DISASSOC:
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 4, 0))
-			cfg80211_tx_mlme_mgmt(sdata->dev, (u8 *)mgmt, skb->len);
+			cfg80211_tx_mlme_mgmt(sdata->dev, (u8 *)mgmt, skb->len, false);
 #else
 			cfg80211_send_disassoc(sdata->dev, (u8 *)mgmt, skb->len);
 #endif
@@ -2312,7 +2312,7 @@ void mac80211_sta_rx_queued_mgmt(struct ieee80211_sub_if_data *sdata,
 		mutex_unlock(&local->mtx);
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 4, 0))
-		cfg80211_tx_mlme_mgmt(sdata->dev, (u8 *)mgmt, skb->len);
+		cfg80211_tx_mlme_mgmt(sdata->dev, (u8 *)mgmt, skb->len, false);
 #else
 		cfg80211_send_deauth(sdata->dev, (u8 *)mgmt, skb->len);
 #endif
@@ -2920,7 +2920,7 @@ int mac80211_mgd_assoc(struct ieee80211_sub_if_data *sdata,
 	wk->assoc.supp_rates = bss->supp_rates;
 	wk->assoc.supp_rates_len = bss->supp_rates_len;
 	wk->assoc.ht_information_ie =
-		ieee80211_bss_get_ie(req->bss, WLAN_EID_HT_INFORMATION);
+		ieee80211_bss_get_ie(req->bss, WLAN_EID_HT_OPERATION);
 	if (bss->wmm_used && bss->uapsd_supported &&
 	    (sdata->local->hw.flags & IEEE80211_HW_SUPPORTS_UAPSD)) {
 		/*
@@ -2985,7 +2985,7 @@ int mac80211_mgd_deauth(struct ieee80211_sub_if_data *sdata,
 
 	memcpy(bssid, req->bssid, ETH_ALEN);
 	if (ifmgd->associated &&
-	    compare_ether_addr(ifmgd->associated->bssid, req->bssid) == 0) {
+	    ether_addr_equal(ifmgd->associated->bssid, req->bssid)) {
 		ieee80211_set_disassoc(sdata, false, true);
 		mutex_unlock(&ifmgd->mtx);
 		assoc_bss = true;
