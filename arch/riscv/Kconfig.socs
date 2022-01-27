@@ -6,6 +6,7 @@ config ARCH_SUNXI
 	select SUN4I_TIMER
 	select SUN5I_HSTIMER
 	select SUN20I_INTC
+	select RISCV_DMA_NONCOHERENT
 	help
 	  This enables support for Allwinner sunXi SoC platforms.
 
