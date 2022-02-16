@@ -1,10 +1,13 @@
 // SPDX-License-Identifier: GPL-2.0
 
+#define pr_fmt(fmt) "riscv: " fmt
 #include <linux/mm.h>
 #include <linux/smp.h>
 #include <linux/sched.h>
 #include <asm/sbi.h>
 #include <asm/mmu_context.h>
+
+static unsigned long tlb_flush_all_threshold __read_mostly = PTRS_PER_PTE;
 
 static inline void local_flush_tlb_all_asid(unsigned long asid)
 {
@@ -26,19 +29,61 @@ static inline void local_flush_tlb_page_asid(unsigned long addr,
 static inline void local_flush_tlb_range(unsigned long start,
 		unsigned long size, unsigned long stride)
 {
-	if (size <= stride)
-		local_flush_tlb_page(start);
-	else
+	if ((size / stride) <= tlb_flush_all_threshold) {
+		if (riscv_use_flush_tlb_svinval()) {
+			__riscv_sfence_w_inval();
+			while (size) {
+				__riscv_sinval_vma(start);
+				start += stride;
+				if (size > stride)
+					size -= stride;
+				else
+					size = 0;
+			}
+			__riscv_sfence_inval_ir();
+		} else {
+			while (size) {
+				local_flush_tlb_page(start);
+				start += stride;
+				if (size > stride)
+					size -= stride;
+				else
+					size = 0;
+			}
+		}
+	} else {
 		local_flush_tlb_all();
+	}
 }
 
 static inline void local_flush_tlb_range_asid(unsigned long start,
 		unsigned long size, unsigned long stride, unsigned long asid)
 {
-	if (size <= stride)
-		local_flush_tlb_page_asid(start, asid);
-	else
+	if ((size / stride) <= tlb_flush_all_threshold) {
+		if (riscv_use_flush_tlb_svinval()) {
+			__riscv_sfence_w_inval();
+			while (size) {
+				__riscv_sinval_vma_asid(start, asid);
+				start += stride;
+				if (size > stride)
+					size -= stride;
+				else
+					size = 0;
+			}
+			__riscv_sfence_inval_ir();
+		} else {
+			while (size) {
+				local_flush_tlb_page_asid(start, asid);
+				start += stride;
+				if (size > stride)
+					size -= stride;
+				else
+					size = 0;
+			}
+		}
+	} else {
 		local_flush_tlb_all_asid(asid);
+	}
 }
 
 static void __ipi_flush_tlb_all(void *info)
@@ -149,3 +194,16 @@ void flush_pmd_tlb_range(struct vm_area_struct *vma, unsigned long start,
 	__flush_tlb_range(vma->vm_mm, start, end - start, PMD_SIZE);
 }
 #endif
+
+DEFINE_STATIC_KEY_FALSE(riscv_flush_tlb_svinval);
+EXPORT_SYMBOL_GPL(riscv_flush_tlb_svinval);
+
+void riscv_tlbflush_init(void)
+{
+	if (riscv_isa_extension_available(NULL, SVINVAL)) {
+		pr_info("Svinval extension supported\n");
+		static_branch_enable(&riscv_flush_tlb_svinval);
+	} else {
+		static_branch_disable(&riscv_flush_tlb_svinval);
+	}
+}
