@@ -1,3 +1,10 @@
+linux-riscv (5.15.0-1004.4ubuntu1~ppa0) jammy; urgency=medium
+
+  * PCI: fu740: Drop to 2.5GT/s to fix initial device probing on some boards
+  * UBUNTU: SAUCE: riscv: Disable VMAP_STACK since it fails with efi
+
+ -- Alexandre Ghiti <alexandre.ghiti@canonical.com>  Thu, 31 Mar 2022 11:02:26 +0200
+
 linux-riscv (5.15.0-1004.4) jammy; urgency=medium
 
   * jammy/linux-riscv: 5.15.0-1004.4 -proposed tracker (LP: #1960420)
