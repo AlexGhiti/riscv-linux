@@ -8920,7 +8920,7 @@ CONFIG_CFG80211_USE_KERNEL_REGDB_KEYS           policy<{'riscv64': 'y'}>
 
 # Menu: Platform type >> Architecture: riscv
 CONFIG_SMP                                      policy<{'riscv64': 'y'}>
-CONFIG_NR_CPUS                                  policy<{'riscv64': '8'}>
+CONFIG_NR_CPUS                                  policy<{'riscv64': '64'}>
 CONFIG_HOTPLUG_CPU                              policy<{'riscv64': 'y'}>
 CONFIG_RISCV_ISA_C                              policy<{'riscv64': 'y'}>
 CONFIG_FPU                                      policy<{'riscv64': 'y'}>
