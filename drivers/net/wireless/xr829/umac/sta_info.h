@@ -13,8 +13,8 @@
 #include <linux/types.h>
 #include <linux/if_ether.h>
 #include <linux/workqueue.h>
-#include <linux/average.h>
 #include "key.h"
+#include <umac_average.h>
 
 /**
  * enum ieee80211_sta_info_flags - Stations flags
@@ -332,7 +332,7 @@ struct sta_info {
 	unsigned long rx_fragments;
 	unsigned long rx_dropped;
 	int last_signal;
-	struct ewma avg_signal;
+	struct ewma_umac avg_signal;
 	/* Plus 1 for non-QoS frames */
 	__le16 last_seq_ctrl[NUM_RX_DATA_QUEUES + 1];
 

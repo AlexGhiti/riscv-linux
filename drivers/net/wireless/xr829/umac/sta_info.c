@@ -18,6 +18,7 @@
 #include <linux/rtnetlink.h>
 
 #include <net/mac80211.h>
+#include <umac_average.h>
 #include "ieee80211_i.h"
 #include "driver-ops.h"
 #include "rate.h"
@@ -333,7 +334,7 @@ struct sta_info *xrmac_sta_info_alloc(struct ieee80211_sub_if_data *sdata,
 
 	ktime_get_ts(&uptime);
 	sta->last_connected = uptime.tv_sec;
-	ewma_init(&sta->avg_signal, 1024, 8);
+	ewma_umac_init(&sta->avg_signal, 1024, 8);
 
 	if (sta_prepare_rate_control(local, sta, gfp)) {
 		kfree(sta);

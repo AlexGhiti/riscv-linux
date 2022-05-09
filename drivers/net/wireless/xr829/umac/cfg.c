@@ -21,6 +21,7 @@
 #include "cfg.h"
 #include "rate.h"
 #include "mesh.h"
+#include <umac_average.h>
 
 static struct wireless_dev *ieee80211_add_iface(struct wiphy *wiphy,
 						const char *name,
@@ -424,7 +425,7 @@ static void sta_set_sinfo(struct sta_info *sta, struct station_info *sinfo)
 	    (sta->local->hw.flags & IEEE80211_HW_SIGNAL_UNSPEC)) {
 		sinfo->filled |= BIT(NL80211_STA_INFO_SIGNAL) | BIT(NL80211_STA_INFO_SIGNAL_AVG);
 		sinfo->signal = (s8)sta->last_signal;
-		sinfo->signal_avg = (s8) -ewma_read(&sta->avg_signal);
+		sinfo->signal_avg = (s8) - ewma_umac_read(&sta->avg_signal);
 	}
 
 	sinfo->txrate.flags = 0;
