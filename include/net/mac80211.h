@@ -393,6 +393,19 @@ enum ieee80211_rssi_event_data {
 };
 
 /**
+ * ieee80211_channel_conf - channel configuration
+ *
+ * @channel: the channel to tune to
+ * @channel_type: the channel (HT) type
+ * @offchannel: The device is currently not on its main operating channel.
+ */
+struct ieee80211_channel_conf {
+        struct ieee80211_channel *channel;
+        enum nl80211_channel_type channel_type;
+        bool offchannel;
+};
+
+/**
  * struct ieee80211_rssi_event - data attached to an %RSSI_EVENT
  * @data: See &enum ieee80211_rssi_event_data
  */
