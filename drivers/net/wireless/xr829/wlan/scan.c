@@ -383,7 +383,7 @@ int xradio_hw_scan(struct ieee80211_hw *hw,
 int xradio_hw_sched_scan_start(struct ieee80211_hw *hw,
 		   struct ieee80211_vif *vif,
 		   struct cfg80211_sched_scan_request *req,
-		   struct ieee80211_sched_scan_ies *ies)
+		   struct ieee80211_scan_ies *ies)
 {
 	struct xradio_common *hw_priv = hw->priv;
 	struct xradio_vif *priv = xrwl_get_vif_from_ieee80211(vif);
@@ -437,7 +437,7 @@ int xradio_hw_sched_scan_start(struct ieee80211_hw *hw,
 	}
 
 	frame.skb = mac80211_probereq_get(hw, priv->vif, NULL, 0,
-			ies->ie[0], ies->len[0]);
+			ies->ies[0], ies->len[0]);
 	if (!frame.skb) {
 		scan_printk(XRADIO_DBG_ERROR, "%s: mac80211_probereq_get failed!\n",
 			__func__);

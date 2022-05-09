@@ -897,19 +897,19 @@ int mac80211_request_sched_scan_start(struct ieee80211_sub_if_data *sdata,
 		if (!local->hw.wiphy->bands[i])
 			continue;
 #endif /*ROAM_OFFLOAD*/
-		local->sched_scan_ies.ie[i] = kzalloc(2 +
+		local->sched_scan_ies.ies[i] = kzalloc(2 +
 						      IEEE80211_MAX_SSID_LEN +
 						      local->scan_ies_len +
 						      req->ie_len,
 						      GFP_KERNEL);
-		if (!local->sched_scan_ies.ie[i]) {
+		if (!local->sched_scan_ies.ies[i]) {
 			ret = -ENOMEM;
 			goto out_free;
 		}
 
 		local->sched_scan_ies.len[i] =
 			mac80211_build_preq_ies(local,
-						 local->sched_scan_ies.ie[i],
+						 local->sched_scan_ies.ies[i],
 						 req->ie, req->ie_len, i,
 						 (u32) -1, 0);
 	}
@@ -923,7 +923,7 @@ int mac80211_request_sched_scan_start(struct ieee80211_sub_if_data *sdata,
 
 out_free:
 	while (i > 0)
-		kfree(local->sched_scan_ies.ie[--i]);
+		kfree(local->sched_scan_ies.ies[--i]);
 out:
 	mutex_unlock(&sdata->local->mtx);
 	return ret;
@@ -943,7 +943,7 @@ int mac80211_request_sched_scan_stop(struct ieee80211_sub_if_data *sdata)
 
 	if (local->sched_scanning) {
 		for (i = 0; i < NUM_NL80211_BANDS; i++)
-			kfree(local->sched_scan_ies.ie[i]);
+			kfree(local->sched_scan_ies.ies[i]);
 
 		drv_sched_scan_stop(local, sdata);
 		local->sched_scanning = false;
@@ -985,7 +985,7 @@ void mac80211_sched_scan_stopped_work(struct work_struct *work)
 	}
 
 	for (i = 0; i < NUM_NL80211_BANDS; i++)
-		kfree(local->sched_scan_ies.ie[i]);
+		kfree(local->sched_scan_ies.ies[i]);
 
 	local->sched_scanning = false;
 

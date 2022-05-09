@@ -61,7 +61,7 @@ int xradio_hw_scan(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 int xradio_hw_sched_scan_start(struct ieee80211_hw *hw,
 			       struct ieee80211_vif *vif,
 			       struct cfg80211_sched_scan_request *req,
-			       struct ieee80211_sched_scan_ies *ies);
+			       struct ieee80211_scan_ies *ies);
 void xradio_hw_sched_scan_stop(struct xradio_common *priv);
 void xradio_sched_scan_work(struct work_struct *work);
 #endif /*ROAM_OFFLOAD*/

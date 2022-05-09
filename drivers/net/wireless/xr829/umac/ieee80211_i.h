@@ -1059,7 +1059,7 @@ struct ieee80211_local {
 	struct cfg80211_scan_info scan_info;
 
 	bool sched_scanning;
-	struct ieee80211_sched_scan_ies sched_scan_ies;
+	struct ieee80211_scan_ies sched_scan_ies;
 	struct work_struct sched_scan_stopped_work;
 
 	unsigned long leave_oper_channel_time;
