@@ -71,15 +71,6 @@ bool mac80211_set_channel_type(struct ieee80211_local *local,
 
 	mutex_lock(&local->iflist_mtx);
 
-	if (local->hw.flags & IEEE80211_HW_SUPPORTS_MULTI_CHANNEL) {
-		/* XXX: COMBO: TBD - is this ok? */
-		BUG_ON(!sdata);
-		sdata->chan_state._oper_channel_type = chantype;
-		sdata->vif.bss_conf.channel_type = chantype;
-		result = true;
-		goto out;
-	}
-
 	chan_state = ieee80211_get_channel_state(local, sdata);
 
 	list_for_each_entry(tmp, &local->interfaces, list) {

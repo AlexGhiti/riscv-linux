@@ -97,12 +97,7 @@ void mac80211_configure_filter(struct ieee80211_sub_if_data *sdata)
 void ieee80211_notify_channel_change(struct ieee80211_local *local,
 			struct ieee80211_sub_if_data *sdata)
 {
-	if (local->hw.flags & IEEE80211_HW_SUPPORTS_MULTI_CHANNEL) {
-		BUG_ON(!sdata);
-		mac80211_bss_info_change_notify(sdata, BSS_CHANGED_CHANNEL);
-	} else {
-		mac80211_hw_config(local, IEEE80211_CONF_CHANGE_CHANNEL);
-	}
+	mac80211_hw_config(local, IEEE80211_CONF_CHANGE_CHANNEL);
 }
 
 static struct ieee80211_channel *ieee80211_recalc_channel(
@@ -184,31 +179,9 @@ int mac80211_hw_config(struct ieee80211_local *local, u32 changed)
 
 	might_sleep();
 
-	if (local->hw.flags & IEEE80211_HW_SUPPORTS_MULTI_CHANNEL) {
-		/* XXX: broken code ahead*/
-		/*      we can't call bss_info_changed while in rcu section!*/
-		rcu_read_lock();
-		list_for_each_entry_rcu(sdata, &local->interfaces, list)
-			ieee80211_recalc_channel(NULL, sdata, &changed);
-		rcu_read_unlock();
-		/* XXX: broken code end*/
-	} else {
-		chan = ieee80211_recalc_channel(local, NULL, &changed);
-	}
+	chan = ieee80211_recalc_channel(local, NULL, &changed);
 
-	if (local->hw.flags & IEEE80211_HW_SUPPORTS_MULTI_CHANNEL) {
-		is_ht = true;
-		rcu_read_lock();
-		list_for_each_entry_rcu(sdata, &local->interfaces, list) {
-			if (!conf_is_ht(&sdata->chan_state.conf)) {
-				is_ht = false;
-				break;
-			}
-		}
-		rcu_read_unlock();
-	} else {
-		is_ht = conf_is_ht(local->hw.conf.chan_conf);
-	}
+	is_ht = conf_is_ht(local->hw.conf.chan_conf);
 
 	if (!is_ht) {
 		/*
@@ -222,24 +195,13 @@ int mac80211_hw_config(struct ieee80211_local *local, u32 changed)
 		changed |= IEEE80211_CONF_CHANGE_SMPS;
 	}
 
-	if (local->hw.flags & IEEE80211_HW_SUPPORTS_MULTI_CHANNEL) {
-		power = 0;
-		rcu_read_lock();
-		list_for_each_entry_rcu(sdata, &local->interfaces, list)
-			power = max(power, sdata->chan_state.conf.channel->max_power);
-		list_for_each_entry_rcu(sdata, &local->interfaces, list)
-			power = min(power, (sdata->chan_state.conf.channel->max_power -
-						local->power_constr_level));
-		rcu_read_unlock();
+	if ((local->scanning & SCAN_SW_SCANNING) ||
+			(local->scanning & SCAN_HW_SCANNING)) {
+		power = chan->max_power;
 	} else {
-		if ((local->scanning & SCAN_SW_SCANNING) ||
-		    (local->scanning & SCAN_HW_SCANNING)) {
-			power = chan->max_power;
-		} else {
-			power = local->power_constr_level ?
-				(chan->max_power - local->power_constr_level) :
-				chan->max_power;
-		}
+		power = local->power_constr_level ?
+			(chan->max_power - local->power_constr_level) :
+			chan->max_power;
 	}
 
 	if (local->user_power_level >= 0)
@@ -281,8 +243,7 @@ void mac80211_bss_info_change_notify(struct ieee80211_sub_if_data *sdata,
 	if (!changed)
 		return;
 
-	if (local->hw.flags & IEEE80211_HW_SUPPORTS_MULTI_CHANNEL)
-		ieee80211_recalc_channel(NULL, sdata, &changed);
+	ieee80211_recalc_channel(NULL, sdata, &changed);
 
 	if (sdata->vif.type == NL80211_IFTYPE_STATION) {
 		/*

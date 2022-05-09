@@ -2148,22 +2148,9 @@ static int ieee80211_set_tx_power(struct wiphy *wiphy,
 	case NL80211_TX_POWER_FIXED:
 		if (mbm < 0 || (mbm % 100))
 			return -EOPNOTSUPP;
-		/* TODO: move to cfg80211 when it knows the channel */
-		if (local->hw.flags & IEEE80211_HW_SUPPORTS_MULTI_CHANNEL) {
-			rcu_read_lock();
-			list_for_each_entry_rcu(sdata, &local->interfaces, list) {
-				chan = sdata->chan_state.conf.channel;
-				if (MBM_TO_DBM(mbm) > chan->max_power) {
-					rcu_read_unlock();
-					return -EINVAL;
-				}
-			}
-			rcu_read_unlock();
-		} else {
-			chan = local->chan_state.conf.channel;
-			if (MBM_TO_DBM(mbm) > chan->max_power)
-				return -EINVAL;
-		}
+		chan = local->chan_state.conf.channel;
+		if (MBM_TO_DBM(mbm) > chan->max_power)
+			return -EINVAL;
 		local->user_power_level = MBM_TO_DBM(mbm);
 		break;
 	}

@@ -265,13 +265,6 @@ static ssize_t channel_type_read(struct file *file, char __user *user_buf,
 	struct ieee80211_channel_state *chan_state;
 	const char *buf;
 
-	/* XXX: COMBO: Todo, later*/
-	if (WARN(local->hw.flags & IEEE80211_HW_SUPPORTS_MULTI_CHANNEL,
-			"Cannot read channel type due to multi-channel operation. ")) {
-		buf = "notsupp";
-		return simple_read_from_buffer(user_buf, count, ppos, buf, strlen(buf));
-	}
-
 	chan_state = ieee80211_get_channel_state(local, NULL);
 
 	switch (chan_state->conf.channel_type) {

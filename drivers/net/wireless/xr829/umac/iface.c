@@ -609,10 +609,7 @@ static void ieee80211_do_stop(struct ieee80211_sub_if_data *sdata,
 	 * on different channel types.
 	 */
 	orig_ct = chan_state->_oper_channel_type;
-	if (local->hw.flags & IEEE80211_HW_SUPPORTS_MULTI_CHANNEL)
-		mac80211_set_channel_type(local, sdata, NL80211_CHAN_NO_HT);
-	else
-		mac80211_set_channel_type(local, NULL, NL80211_CHAN_NO_HT);
+	mac80211_set_channel_type(local, NULL, NL80211_CHAN_NO_HT);
 
 	/* do after stop to avoid reconfiguring when we stop anyway */
 	if (hw_reconf_flags || (orig_ct != chan_state->_oper_channel_type))

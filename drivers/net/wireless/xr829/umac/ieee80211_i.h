@@ -1462,12 +1462,7 @@ static inline bool ieee80211_sdata_running(struct ieee80211_sub_if_data *sdata)
 static inline struct ieee80211_channel_state *ieee80211_get_channel_state(
 			struct ieee80211_local *local,
 			struct ieee80211_sub_if_data *sdata) {
-	if (local->hw.flags & IEEE80211_HW_SUPPORTS_MULTI_CHANNEL) {
-		BUG_ON(!sdata);
-		return &sdata->chan_state;
-	} else {
-		return &local->chan_state;
-	}
+	return &local->chan_state;
 }
 
 /* tx handling */
