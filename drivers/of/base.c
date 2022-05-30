@@ -850,7 +850,7 @@ struct device_node *of_get_next_cpu_node(struct device_node *prev)
 		if (of_node_get(next))
 			break;
 	}
-	of_node_put(prev);
+	//of_node_put(prev);
 	raw_spin_unlock_irqrestore(&devtree_lock, flags);
 	return next;
 }
