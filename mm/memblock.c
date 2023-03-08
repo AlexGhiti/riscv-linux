@@ -753,7 +753,8 @@ static int __init_memblock memblock_isolate_range(struct memblock_type *type,
 	int idx;
 	struct memblock_region *rgn;
 
-	*start_rgn = *end_rgn = 0;
+	if (start_rgn && end_rgn)
+		*start_rgn = *end_rgn = 0;
 
 	if (!size)
 		return 0;
@@ -795,6 +796,9 @@ static int __init_memblock memblock_isolate_range(struct memblock_type *type,
 					       memblock_get_region_node(rgn),
 					       rgn->flags);
 		} else {
+			if (!end_rgn || !start_rgn)
+				continue;
+
 			/* @rgn is fully contained, record it */
 			if (!*end_rgn)
 				*start_rgn = idx;
@@ -803,6 +807,22 @@ static int __init_memblock memblock_isolate_range(struct memblock_type *type,
 	}
 
 	return 0;
+}
+
+/**
+ * memblock_isolate_memory - isolate given range from memblock.memory
+ * @base: base of range to isolate
+ * @size: size of range to isolate
+ *
+ * Call memblock_isolate_range on memblock.memory to isolate the given range.
+ *
+ * Return:
+ * 0 on success, -errno on failure.
+ */
+
+int __init_memblock memblock_isolate_memory(phys_addr_t base, phys_addr_t size)
+{
+	return memblock_isolate_range(&memblock.memory, base, size, NULL, NULL);
 }
 
 static int __init_memblock memblock_remove_range(struct memblock_type *type,
