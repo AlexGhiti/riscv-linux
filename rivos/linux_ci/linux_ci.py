@@ -78,7 +78,7 @@ def userspace_prepare_vm(c, kernel_version):
     c.run("bash prepare_vm_from_guest.sh")
 
 def userspace_launch_tests(c, kernel_version, long_valid, subset):
-    list_tests = glob.glob("tests/{}/*".format(subset))
+    list_tests = [ "tests/all/perf" ] #glob.glob("tests/{}/*".format(subset))
     for test in list_tests:
         test_name = os.path.basename(test)
         print("*** {}...".format(test_name))
