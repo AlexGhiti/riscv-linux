@@ -552,7 +552,7 @@ static void __init map_mem(pgd_t *pgdp)
 	 * So temporarily mark them as NOMAP to skip mappings in
 	 * the following for-loop
 	 */
-	memblock_mark_nomap(kernel_start, kernel_end - kernel_start);
+	memblock_isolate_memory(kernel_start, kernel_end - kernel_start);
 
 #ifdef CONFIG_KEXEC_CORE
 	if (crash_mem_map) {
@@ -569,6 +569,20 @@ static void __init map_mem(pgd_t *pgdp)
 		if (start >= end)
 			break;
 		/*
+		 * Map the linear alias of the [_stext, __init_begin) interval
+		 * as non-executable now, and remove the write permission in
+		 * mark_linear_text_alias_ro() below (which will be called after
+		 * alternative patching has completed). This makes the contents
+		 * of the region accessible to subsystems such as hibernate,
+		 * but protects it from inadvertent modification or execution.
+		 * Note that contiguous mappings cannot be remapped in this way,
+		 * so we should avoid them here.
+		 */
+		if (start == kernel_start)
+			__map_memblock(pgdp, kernel_start, kernel_end,
+				       PAGE_KERNEL, NO_CONT_MAPPINGS);
+
+		/*
 		 * The linear map must allow allocation tags reading/writing
 		 * if MTE is present. Otherwise, it has the same attributes as
 		 * PAGE_KERNEL.
@@ -576,20 +590,6 @@ static void __init map_mem(pgd_t *pgdp)
 		__map_memblock(pgdp, start, end, pgprot_tagged(PAGE_KERNEL),
 			       flags);
 	}
-
-	/*
-	 * Map the linear alias of the [_stext, __init_begin) interval
-	 * as non-executable now, and remove the write permission in
-	 * mark_linear_text_alias_ro() below (which will be called after
-	 * alternative patching has completed). This makes the contents
-	 * of the region accessible to subsystems such as hibernate,
-	 * but protects it from inadvertent modification or execution.
-	 * Note that contiguous mappings cannot be remapped in this way,
-	 * so we should avoid them here.
-	 */
-	__map_memblock(pgdp, kernel_start, kernel_end,
-		       PAGE_KERNEL, NO_CONT_MAPPINGS);
-	memblock_clear_nomap(kernel_start, kernel_end - kernel_start);
 
 	/*
 	 * Use page-level mappings here so that we can shrink the region
