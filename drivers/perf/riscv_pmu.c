@@ -249,7 +249,6 @@ static int riscv_pmu_event_init(struct perf_event *event)
 	u64 event_config = 0;
 	uint64_t cmask;
 
-	hwc->flags = 0;
 	mapped_event = rvpmu->event_map(event, &event_config);
 	if (mapped_event < 0) {
 		pr_debug("event %x:%llx not supported\n", event->attr.type,
@@ -266,6 +265,13 @@ static int riscv_pmu_event_init(struct perf_event *event)
 	hwc->config = event_config;
 	hwc->idx = -1;
 	hwc->event_base = mapped_event;
+	/*
+	 * Userspace access is determined at event_init so that if the user
+	 * changes the permissions while the application is running, it does not
+	 * get a SIGILL all of a sudden.
+	 */
+	hwc->flags = !rvpmu->user_access(event) ?
+					0 : PERF_EVENT_FLAG_USER_READ_CNT;
 
 	if (!is_sampling_event(event)) {
 		/*
@@ -281,6 +287,11 @@ static int riscv_pmu_event_init(struct perf_event *event)
 	}
 
 	return 0;
+}
+
+static int riscv_pmu_event_idx(struct perf_event *event)
+{
+	return event->hw.idx + 1;
 }
 
 struct riscv_pmu *riscv_pmu_alloc(void)
@@ -307,6 +318,7 @@ struct riscv_pmu *riscv_pmu_alloc(void)
 	}
 	pmu->pmu = (struct pmu) {
 		.event_init	= riscv_pmu_event_init,
+		.event_idx	= riscv_pmu_event_idx,
 		.add		= riscv_pmu_add,
 		.del		= riscv_pmu_del,
 		.start		= riscv_pmu_start,
