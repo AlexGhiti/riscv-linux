@@ -22,6 +22,10 @@
  */
 enum fixed_addresses {
 	FIX_HOLE,
+	/* PMD_SIZE-aligned */
+        FIX_FDT_END,
+        FIX_FDT = FIX_FDT_END + FIX_FDT_SIZE / PAGE_SIZE - 1,
+	/* PMD_SIZE-aligned */
 	FIX_PTE,
 	FIX_PMD,
 	FIX_PUD,
